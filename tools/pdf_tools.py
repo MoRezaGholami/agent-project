@@ -3,6 +3,11 @@ from langchain_core.tools import tool
 
 @tool
 def read_pdf(file_path: str) -> str :
+    """
+    متن کامل یک فایل PDF را استخراج می‌کند.
+    ورودی: مسیر فایل PDF روی دیسک.
+    خروجی: متن استخراج‌شده از تمام صفحات.
+    """
     try :
         reader = PdfReader(file_path)
         text_parts = []
