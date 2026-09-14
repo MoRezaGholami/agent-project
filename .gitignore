@@ -1,0 +1,38 @@
+# Environment variables (کلید API اینجاست - هرگز نباید commit بشه)
+.env
+.env.local
+*.env
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# لاگ‌ها و فایل‌های خروجی موقت
+*.log
+output/
+temp/
+
+# اسناد نمونه/تست که شخصیه یا حجیمه (دلخواه - اگه PDF تست داری اینجا بذار)
+*.pdf
+!examples/*.pdf
