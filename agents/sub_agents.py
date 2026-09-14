@@ -9,6 +9,7 @@ model = ChatOpenAI(
     model = "gpt-4o-mini",
     base_url = os.environ.get("AI_BASE_URL" , "https://api.avalai.ir/v1"),
     api_key= os.environ["AI_API_KEY"],
+    max_retries=8,
 )
 
 
