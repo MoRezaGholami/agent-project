@@ -1,10 +1,16 @@
+import time
+import logging
+from typing import Optional
 from langchain_core.language_models.chat_models import BaseChatModel
-
-from mcp.server import MCPClient
 
 from models.schemas import WorkflowState, FinalReport, ProjectComplexity, ReviewStatus, ArchitecturePlan
 from agents.orchestrator import OrchestratorAgent
 from agents.sub_agents import ArchitectureAgent, TaskPlannerAgent, ReviewerAgent
+from tools.validation_tools import validate_dependencies, detect_cycles, calculate_task_order, estimate_project_duration
+from mcp.server import MCPClient
+
+MAX_API_RETRIES = 1
+MAX_REPLAN_ROUNDS = 2
 
 class WorkflowRunner :
     """
@@ -26,7 +32,146 @@ class WorkflowRunner :
         self.reviewer = ReviewerAgent(llm)
 
 
-        
+
+    def _safe_invoke(self , agent_method , *args , **kwargs):
+        """
+        Safely invokes an LLM agent with a strict boundary on API errors (like 429).
+        If it fails, it does NOT retry indefinitely.
+        """
+
+
+        retries = 0
+        while retries <= MAX_API_RETRIES :
+            try :
+                return agent_method(*args , **kwargs)
+            except Exception as e :
+                error_msg = str(e).lower
+                if "429" in error_msg or "rate limit" in error_msg :
+                    print(f"[HARNESS ERROR] 429 Rate Limit hit. Retry {retries}/{MAX_API_RETRIES} after short sleep...")
+                    time.sleep(2)
+                    retries += 1
+                else :
+                    print(f"[HARNESS ERROR] Unexpected LLM failure: {e}")
+                    break
+        return None
+
+
+    def run(self, user_request: str) -> FinalReport:
+        print("\n==================================================")
+        print("[HARNESS] Starting Autonomous Planning Workflow")
+        print("==================================================\n")
+
+        self.state.current_step = "orchestration"
+        decision = self._safe_invoke(self.orchestrator.invoke, user_request)
+        if not decision :
+            return self._abort_workflow("Failed to parse user request due to API error.")
+
+
+        self.state.goal = decision.goal
+        self.state.complexity = decision.complexity
+
+
+        if self.state.complexity == ProjectComplexity.COMPLEX :
+            self.state.current_step = "architecture"
+            print("[HARNESS] Complex project detected. Delegating to Architecture Agent.")
+
+            arch_plan = self._safe_invoke(self.architecture_agent.invoke, self.state.goal)
+            if not arch_plan : 
+                return self._abort_workflow("Architecture Agent failed. Cannot continue complex project.")
+
+
+            self.state.architecture = arch_plan
+
+        else :
+            print("[HARNESS] Simple project detected. Skipping Architecture Agent.")
+            self.state.architecture = ArchitecturePlan(
+                components=["Main Script"], technologies=["Python"], 
+                modules=["Core"], architecture_decisions=["Single-file script preferred"],
+                assumptions=[], open_questions=[]
+            )
+
+            self.state.replan_rounds = 0
+            review_feedback_for_planner = ""
+
+            while self.state.replan_rounds <= MAX_REPLAN_ROUNDS :
+                self.state.current_step = f"planning_loop_round_{self.state.replan_rounds}"
+                print(f"\n--- [LOOP] Starting Planning Round {self.state.replan_rounds} ---")
+                
+                # --- A. Fetch MCP Context ---
+                print("[HARNESS] Fetching external state from MCP...")
+
+                try : 
+                    mcp_resp = self.mcp_client.call_tool("get_tasks")
+                    mcp_context = f"Existing Tasks: {mcp_resp.get('data', [])}\n"
+                    if review_feedback_for_planner :
+                        mcp_context += f"CRITICAL - PREVIOUS REVIEW FEEDBACK TO FIX:\n{review_feedback_for_planner}"
+                except Exception as e :
+                    print(f"[HARNESS ERROR] MCP Failure: {e}")
+                    mcp_context = "External system unavailable."
+
+
+                #PLAN B : task planner.
+                task_plan = self._safe_invoke(
+                    self.task_planner.invoke, 
+                    self.state.goal, 
+                    self.state.architecture, 
+                    mcp_context
+                )
+
+
+                if not task_plan:
+                    return self._abort_workflow("Task Planner failed to generate a plan.")
+                self.state.task_plan = task_plan
+
+
+                #Deterministic Tools
+                print("[HARNESS] Running deterministic Python tools on Task Plan...")
+
+                tool_errors = []
+                tool_errors.extend(validate_dependencies(task_plan.tasks))
+                tool_errors.extend(detect_cycles(task_plan.tasks))
+                _, order_errors = calculate_task_order(task_plan.tasks)
+                tool_errors.extend(order_errors)
+
+                if tool_errors:
+                    print(f"[HARNESS WARNING] Tools found {len(tool_errors)} logic errors.")
+
+                #Review
+                review = self._safe_invoke(self.reviewer.invoke, self.state.architecture, self.state.task_plan, tool_errors)
+                if not review:
+                # If reviewer fails, we break the loop and return what we have (Graceful Degradation)
+                    print("[HARNESS ERROR] Reviewer Agent failed. Stopping validation loop.")
+                    break
+                self.state.review = review
+                print(f"[HARNESS] Reviewer verdict: {review.status.value.upper()}")
+
+
+
+                #Loop_Decision
+
+                if review.status == ReviewStatus.APPROVED :
+                    print("[LOOP] Plan approved by Reviewer. Breaking loop.")
+                    break
+                else :
+                    self.state.replan_rounds +=1
+                    if self.state.replan_rounds > MAX_REPLAN_ROUNDS:
+                        print("[LOOP LIMIT] Maximum replanning rounds reached! Forcing stop.")
+                        break
+
+
+                    print("[LOOP] Plan rejected. Generating feedback for next round...")
+                    issues_text = "\n".join([f"- {iss.description} ({iss.severity})" for iss in review.issues])
+                    changes_text = "\n".join([f"- {c}" for c in review.suggested_changes])
+                    review_feedback_for_planner = f"Issues:\n{issues_text}\nSuggestions:\n{changes_text}"
+
+        return self._build_final_report()
+
+    
+
+                
+
+
+
 
 
     
