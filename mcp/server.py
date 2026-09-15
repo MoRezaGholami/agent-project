@@ -36,4 +36,15 @@ class MCPServer:
             with open(DB_FILE, 'w') as f:
                 json.dump(default_state, f, indent=4)
 
+
+
+class MCPClient:
+    """
+    The Client that the Agents use to talk to the MCP Server.
+    It formats requests and handles transport logic.
+    """
+    def __init__(self , server:MCPServer):
+        self.server = server
+
+
     
