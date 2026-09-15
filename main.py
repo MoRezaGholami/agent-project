@@ -43,7 +43,12 @@ def main():
         print("❌ Error: API Key is missing. Please set it in your .env file.")
         return
 
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
+    llm = ChatOpenAI(
+        model="gpt-4o-mini", 
+        temperature=0.1,
+        api_key=os.environ.get("OPENAI_API_KEY"),
+        base_url="https://api.avalai.ir/v1" 
+    )
     print("[SYSTEM] Booting up MCP Server...")
     mcp_server = MCPServer()
     mcp_client = MCPClient(mcp_server)
