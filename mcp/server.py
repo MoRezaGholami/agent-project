@@ -36,7 +36,28 @@ class MCPServer:
             with open(DB_FILE, 'w') as f:
                 json.dump(default_state, f, indent=4)
 
+    def execute_tools(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str , Any] :
+        """
+        The only entry point for the MCP Client. 
+        Enforces the boundary by strictly accepting and returning JSON-serializable dicts.
+        """
 
+        #defining tools :
+        tools = {
+            "get_project" : self._get_project ,
+            "get_tasks" : self._get_tasks ,
+            "create_task": self._create_task,
+            "update_project": self._update_project
+        }
+
+        if tool_name not in tools :
+            return {"status": "error", "message": f"Tool '{tool_name}' not found in MCP Server."}
+
+        try :
+            result = tools[tool_name](**arguments)
+            return {"status": "success", "data": result}
+        except Exception as e :
+            return {"status": "error", "message": str(e)}
 
 class MCPClient:
     """
