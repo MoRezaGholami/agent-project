@@ -1,30 +1,31 @@
-from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.language_models.chat_models import BaseChatModel
 
-from tools.pdf_tools import read_pdf
+from models.schemas import (
+    ProjectGoal,
+    ArchitecturePlan,
+    TaskPlan,
+    ReviewResult
 
-import os
-
-model = ChatOpenAI(
-    model = "gpt-4o-mini",
-    base_url = os.environ.get("AI_BASE_URL" , "https://api.avalai.ir/v1"),
-    api_key= os.environ["AI_API_KEY"],
-    max_retries=8,
 )
 
+class ArchitectureAgent:
+    """
+    Role: Senior Software Architect
+    Responsibility: Translate a high-level goal into a structured system architecture.
+    """
 
-#sub_agent 1: extraction important points
-
-extraction_subagent = create_react_agent(
-    model = model,
-    tools= [read_pdf],
-    prompt = (
-        "تو یک Sub-Agent تخصصی استخراج اطلاعات از اسناد هستی. "
-        "وظیفه‌ات: فایل PDF داده‌شده رو بخون و نکات کلیدی، بندهای اصلی، "
-        "و اطلاعات مهم (تاریخ‌ها، مبالغ، طرفین قرارداد) رو به‌صورت لیست ساخت‌یافته خلاصه کن. "
-        "فقط استخراج کن، درباره‌ی ریسک یا کیفیت نظر نده — این کار Sub-Agent دیگریه."
-    ),
-)
+class TaskPlannerAgent:
+    """
+    Role: Technical Project Manager
+    Responsibility: Break down the architecture into a dependency graph of actionable tasks.
+    """
 
 
-# I will work on sub agent 2 after completing the first one.
+class ReviewerAgent:
+    """
+    Role: Strict Technical Reviewer
+    Responsibility: Evaluate the task plan, architecture, and deterministic validation results to approve or reject the plan.
+    """
+
+    
