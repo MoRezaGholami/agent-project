@@ -147,7 +147,49 @@ class WorkflowRunner:
         
         # 4. FINALIZE (Build Final Report)
         return self._build_final_report()
-                
+
+
+
+    def _abort_workflow(self, reason: str) -> FinalReport:
+        """Graceful degradation in case of fatal error."""
+        self.state.is_finished = True
+        print(f"\n[FATAL ERROR] {reason}")
+        return FinalReport(
+            project_summary="WORKFLOW ABORTED",
+            validation_status="FAILED",
+            warnings=[reason]
+        )
+
+
+    def _build_final_report(self) -> FinalReport:
+        self.state.is_finished = True
+        
+        # Final calculations (Deterministic)
+        est_duration = -1
+        if self.state.task_plan:
+             est_duration = estimate_project_duration(self.state.task_plan.tasks)
+             
+        status = "Fully Validated & Approved"
+        warnings = []
+        
+        if self.state.review and self.state.review.status != ReviewStatus.APPROVED:
+            status = "Partially Validated (Max Replan Rounds Reached)"
+            warnings = ["The plan still has unresolved issues raised by the Reviewer or Tools."]
+            
+        summary = f"Generated {len(self.state.task_plan.tasks) if self.state.task_plan else 0} tasks. "
+        summary += f"Estimated Duration: {est_duration} units."
+        
+        print("\n==================================================")
+        print(f"[FINAL] Workflow Completed. Status: {status}")
+        print("==================================================\n")
+        
+        return FinalReport(
+            project_summary=summary,
+            architecture=self.state.architecture,
+            tasks=self.state.task_plan.tasks if self.state.task_plan else [],
+            validation_status=status,
+            warnings=warnings
+        )
 
 
 
