@@ -24,4 +24,16 @@ class MCPServer:
         with open(DB_FILE, 'w') as f:
             json.dump(data, f, indent=4)
 
+
+
+    def _initialize_db(self):
+        """Creates an empty mock database if it doesn't exist."""
+        if not os.path.exists(DB_FILE):
+            default_state = {
+                "project_info": {},
+                "tasks": []
+            }
+            with open(DB_FILE, 'w') as f:
+                json.dump(default_state, f, indent=4)
+
     
