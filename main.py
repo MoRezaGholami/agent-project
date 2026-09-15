@@ -69,6 +69,7 @@ def main():
         "with PostgreSQL, authentication, REST APIs, automated tests, and Docker deployment."
     )
 
+
     print("\n[USER INPUT]:", demo_prompt)
 
 
