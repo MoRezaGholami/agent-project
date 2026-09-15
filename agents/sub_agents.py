@@ -44,6 +44,31 @@ class TaskPlannerAgent:
     Responsibility: Break down the architecture into a dependency graph of actionable tasks.
     """
 
+    def __init__(self , llm : BaseChatModel):
+        self.llm_with_structure = llm.with_structured_output(TaskPlan)
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a Technical Project Manager.
+Your job is to break down a software architecture into a logical sequence of tasks.
+Rules:
+1. Each task must have a unique ID (e.g., T01, T02).
+2. 'dependencies' must only contain IDs of tasks that MUST be completed before the task can start.
+3. Be granular but avoid micro-management (aim for 5-15 major tasks).
+4. Pay attention to 'Existing System Context'. Do not recreate tasks that already exist in the external system.
+Output strictly in the requested JSON format."""),
+            ("human", """Project Goal: {goal_description}
+
+Approved Architecture:
+Components: {components}
+Technologies: {technologies}
+
+Existing System Context (from MCP):
+{mcp_context}
+
+Generate the Task Plan graph.""")
+        ])
+
+        
+
 
 class ReviewerAgent:
     """
