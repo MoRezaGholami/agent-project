@@ -36,7 +36,7 @@ class MCPServer:
             with open(DB_FILE, 'w') as f:
                 json.dump(default_state, f, indent=4)
 
-    def execute_tools(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str , Any] :
+    def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str , Any] :
         """
         The only entry point for the MCP Client. 
         Enforces the boundary by strictly accepting and returning JSON-serializable dicts.
