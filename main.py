@@ -61,10 +61,10 @@ def main():
     mcp_server = MCPServer()
     mcp_client = MCPClient(mcp_server)
 
-    try:
-        mcp_server.execute_tool("create_task", {"task_id": "T00", "title": "Setup Git Repository", "status": "done"})
-    except ValueError:
-        pass
+    # try:
+    #     mcp_server.execute_tool("create_task", {"task_id": "T00", "title": "Setup Git Repository", "status": "done"})
+    # except ValueError:
+    #     pass
 
 
     runner = WorkflowRunner(llm=llm, mcp_client=mcp_client)

@@ -94,6 +94,8 @@ class WorkflowRunner:
             try:
                 mcp_resp = self.mcp_client.call_tool("get_tasks", project_name=self.state.project_name)
                 mcp_data = mcp_resp.get('data', [])
+                print(f"   [DEBUG] Looking for exactly: '{self.state.project_name}'")
+                print(f"   [DEBUG] Found {len(mcp_data)} existing tasks in DB for this name.")
                 mcp_context = f"Existing Tasks: {mcp_data}\n"
                 
                 # --- NEW: Calculate next task ID deterministically ---
