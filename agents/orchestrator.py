@@ -27,11 +27,10 @@ class OrchestratorAgent:
 Your job is to analyze the user's initial request.
 
 Rules:
-1. Extract the main goal and any explicit constraints (e.g., specific languages, deadlines, DBs).
-2. Determine the project's complexity:
-   - Choose 'SIMPLE' for basic scripts, single-file tools, small bug fixes, or trivial tasks that DO NOT need a software architecture design.
-   - Choose 'COMPLEX' for web apps, systems with databases, APIs, authentication, microservices, or multi-module projects.
-3. Provide a brief reasoning for your decision.
+1. Extract the main goal and constraints.
+2. Determine complexity (SIMPLE or COMPLEX).
+3. Provide reasoning.
+4. Generate a short, descriptive, snake_case 'project_name' based on the core topic (e.g., 'django_lms', 'merge_sort_script').
 
 Do not write tasks or architecture here. Just route the request."""),
             ("human", "User Request: {user_request}")
