@@ -106,22 +106,31 @@ class MCPServer:
         self._write_db(db)
         return f"Task {task_id} created successfully."
 
-    def _search_web(self, query: str, max_results: int = 2) -> List[Dict[str, str]]:
-        """Searches Google for tutorials/courses without using LLM API."""
+    def _search_web(self, query: str, max_results: int = 2) -> list:
+        """
+        Generates direct search URLs instead of scraping to bypass network blocks.
+        Zero token usage, zero network failure.
+        """
+        import urllib.parse
+        
         if not query:
             return []
-        try:
-            results = []
             
-            for r in search(query, num_results=max_results, advanced=True):
-                results.append({
-                    "title": r.title if r.title else r.url, 
-                    "href": r.url
-                })
-            return results
-        except Exception as e:
-            print(f"[MCP ERROR] Google Search failed for '{query}': {e}")
-            return []
+       
+        encoded_query = urllib.parse.quote(query)
+        
+        results = [
+            {
+                "title": f"🔍 Google Search: {query}",
+                "href": f"https://www.google.com/search?q={encoded_query}"
+            },
+            {
+                "title": f"📺 YouTube Tutorials: {query}",
+                "href": f"https://www.youtube.com/results?search_query={encoded_query}"
+            }
+        ]
+        
+        return results
 
     
 

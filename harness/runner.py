@@ -185,15 +185,17 @@ class WorkflowRunner:
         if self.state.task_plan:
             print("\n[HARNESS] 🌐 Fetching live learning resources from the Web via MCP...")
             for task in self.state.task_plan.tasks:
-                if task.search_keywords:
+                if task.search_keywords and task.search_keywords.strip():
                     try:
-                        # فراخوانی ابزار سرچ MCP
+                        print(f"  -> Searching for: '{task.search_keywords}' (Task {task.task_id})")
                         resp = self.mcp_client.call_tool("search_web", query=task.search_keywords)
                         if resp.get("status") == "success" and resp.get("data"):
                             resources[task.task_id] = resp["data"]
-                    except Exception:
-                        pass
-        # -------------------------------------------
+                            print(f"     ✅ Found {len(resp['data'])} links.") 
+                        else:
+                            print(f"     ❌ No valid results returned from MCP.")
+                    except Exception as e:
+                        print(f"     ⚠️ Search tool error: {e}")
         
         est_duration = -1
         if self.state.task_plan:
