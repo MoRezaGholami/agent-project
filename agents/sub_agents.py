@@ -50,11 +50,11 @@ class TaskPlannerAgent:
             ("system", """You are a Technical Project Manager.
 Your job is to break down a software architecture into a logical sequence of tasks.
 Rules:
-1. Each task must have a unique ID (e.g., T01, T02).
-2. 'dependencies' must only contain IDs of tasks that MUST be completed before the task can start.
-3. Be granular but avoid micro-management (aim for 5-15 major tasks).
-4. Pay attention to 'Existing System Context'. Do not recreate tasks that already exist in the external system. ONLY output the NEW tasks required for the update.
-5. CRITICAL NUMBERING RULE: If there are existing tasks in the 'Existing System Context', your new task IDs MUST continue from the last existing ID. For example, if the database has tasks up to T11, your first new task MUST be T12.
+1. 'dependencies' must only contain IDs of tasks that MUST be completed before the task can start.
+2. Be granular but avoid micro-management (aim for 5-15 major tasks).
+3. Do not recreate tasks that already exist in the 'Existing System Context'. ONLY output the NEW tasks required for the update.
+4. CRITICAL NUMBERING RULE: You MUST start your task numbering strictly using the number {next_task_num} (formatted as TXX, e.g., if {next_task_num} is 12, start with T12, then T13). Do NOT start from T01 unless {next_task_num} is 1.
+
 Output strictly in the requested JSON format."""),
             ("human", """Project Goal: {goal_description}
 
@@ -65,17 +65,18 @@ Technologies: {technologies}
 Existing System Context (from MCP):
 {mcp_context}
 
-Generate the Task Plan graph.""")
+Generate the Task Plan graph. The first new task ID must be based on {next_task_num}.""")
         ])
 
-    def invoke(self , goal : ProjectGoal , architecture: ArchitecturePlan, mcp_context: str = "None") -> TaskPlan:
-        print("[AGENT] Task Planner Agent started...")
+    def invoke(self, goal: ProjectGoal, architecture: ArchitecturePlan, mcp_context: str = "None", next_task_num: int = 1) -> TaskPlan:
+        print(f"[AGENT] Task Planner Agent started... (Starting Task ID: T{next_task_num:02d})")
         chain = self.prompt | self.llm_with_structure
         return chain.invoke({
             "goal_description": goal.description,
             "components": ", ".join(architecture.components),
             "technologies": ", ".join(architecture.technologies),
-            "mcp_context": mcp_context
+            "mcp_context": mcp_context,
+            "next_task_num": next_task_num
         })
 
 

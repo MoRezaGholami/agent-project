@@ -93,19 +93,35 @@ class WorkflowRunner:
             print("[HARNESS] Fetching external state from MCP...")
             try:
                 mcp_resp = self.mcp_client.call_tool("get_tasks", project_name=self.state.project_name)
-                mcp_context = f"Existing Tasks: {mcp_resp.get('data', [])}\n"
+                mcp_data = mcp_resp.get('data', [])
+                mcp_context = f"Existing Tasks: {mcp_data}\n"
+                
+                # --- NEW: Calculate next task ID deterministically ---
+                next_task_num = 1
+                if mcp_data:
+                    try:
+                        
+                        existing_ids = [int(t['task_id'].replace('T', '')) for t in mcp_data if str(t.get('task_id', '')).startswith('T')]
+                        if existing_ids:
+                            next_task_num = max(existing_ids) + 1
+                    except Exception as e:
+                        print(f"[HARNESS WARNING] Could not parse existing task IDs: {e}")
+                # ---------------------------------------------------
+                
                 if review_feedback_for_planner:
                     mcp_context += f"CRITICAL - PREVIOUS REVIEW FEEDBACK TO FIX:\n{review_feedback_for_planner}"
             except Exception as e:
                 print(f"[HARNESS ERROR] MCP Failure: {e}")
                 mcp_context = "External system unavailable."
+                next_task_num = 1
 
             # --- B. Task Planner ---
             task_plan = self._safe_invoke(
                 self.task_planner.invoke, 
                 self.state.goal, 
                 self.state.architecture, 
-                mcp_context
+                mcp_context,
+                next_task_num # پاس دادن عدد دقیق به ایجنت
             )
             if not task_plan:
                 return self._abort_workflow("Task Planner failed to generate a plan.")
