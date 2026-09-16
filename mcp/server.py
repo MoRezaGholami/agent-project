@@ -15,7 +15,8 @@ class MCPServer:
     """
 
     def __init__(self):
-        self._initialize_db()
+        if not os.path.exists(DB_FILE):
+            self._initialize_db()
 
 
     def _read_db(self) -> Dict[str, Any]:
