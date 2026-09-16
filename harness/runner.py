@@ -180,7 +180,21 @@ class WorkflowRunner:
     def _build_final_report(self) -> FinalReport:
         self.state.is_finished = True
         
-        # Final calculations (Deterministic)
+        # --- NEW: FETCHING WEB RESOURCES VIA MCP ---
+        resources = {}
+        if self.state.task_plan:
+            print("\n[HARNESS] 🌐 Fetching live learning resources from the Web via MCP...")
+            for task in self.state.task_plan.tasks:
+                if task.search_keywords:
+                    try:
+                        # فراخوانی ابزار سرچ MCP
+                        resp = self.mcp_client.call_tool("search_web", query=task.search_keywords)
+                        if resp.get("status") == "success" and resp.get("data"):
+                            resources[task.task_id] = resp["data"]
+                    except Exception:
+                        pass
+        # -------------------------------------------
+        
         est_duration = -1
         if self.state.task_plan:
              est_duration = estimate_project_duration(self.state.task_plan.tasks)
@@ -204,7 +218,8 @@ class WorkflowRunner:
             architecture=self.state.architecture,
             tasks=self.state.task_plan.tasks if self.state.task_plan else [],
             validation_status=status,
-            warnings=warnings
+            warnings=warnings,
+            learning_resources=resources 
         )
 
 
