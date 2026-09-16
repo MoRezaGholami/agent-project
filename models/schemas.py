@@ -75,6 +75,7 @@ class WorkflowState(BaseModel):
     This model holds the state of our application. 
     It is passed through the Harness, but only specific parts are sent to each Sub-Agent.
     """
+    project_name: str = Field(default="default_project")
     goal: Optional[ProjectGoal] = None
     complexity: Optional[ProjectComplexity] = None
     architecture: Optional[ArchitecturePlan] = None

@@ -9,6 +9,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 class OrchestrationDecision(BaseModel):
     goal : ProjectGoal = Field(..., description="The parsed and structured project goal including constraints.")
     complexity: ProjectComplexity = Field(..., description="SIMPLE or COMPLEX based on the request.")
+    project_name: str = Field(..., description="A short, snake_case identifier for this specific project (e.g., 'django_api', 'merge_sort').")
     reasoning: str = Field(..., description="Short explanation for why this complexity was chosen.")
 
 
