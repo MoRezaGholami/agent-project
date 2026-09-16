@@ -19,8 +19,19 @@ class MCPServer:
 
 
     def _read_db(self) -> Dict[str, Any]:
-        with open(DB_FILE, 'r') as f:
-            return json.load(f)
+        """Reads the DB safely. Recreates it if deleted or corrupted (empty)."""
+        if not os.path.exists(DB_FILE):
+            self._initialize_db()
+            
+        try:
+            with open(DB_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            
+            print("[MCP WARNING] Database file was empty or corrupted. Reinitializing...")
+            self._initialize_db()
+            with open(DB_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
 
     def _write_db(self, data: Dict[str, Any]):
         with open(DB_FILE, 'w') as f:
@@ -30,13 +41,12 @@ class MCPServer:
 
     def _initialize_db(self):
         """Creates an empty mock database if it doesn't exist."""
-        if not os.path.exists(DB_FILE):
-            default_state = {
-                "project_info": {},
-                "tasks": []
-            }
-            with open(DB_FILE, 'w') as f:
-                json.dump(default_state, f, indent=4)
+        default_state = {
+            "project_info": {},
+            "tasks": []
+        }
+        with open(DB_FILE, 'w', encoding='utf-8') as f:
+            json.dump(default_state, f, indent=4)
 
     def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str , Any] :
         """
