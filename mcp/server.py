@@ -77,20 +77,26 @@ class MCPServer:
         db = self._read_db()
         return db.get("tasks", [])
 
-    def _create_task(self, task_id: str, title: str, status: str = "todo") -> str:
-        """Creates a new task in the external system. Prevents duplicates."""
-        db = self._read_db()
-        for task in db["tasks"] :
-            if task.get("task_id") == task_id :
-                raise ValueError(f"Task with ID {task_id} already exists in the system.")
-        db["tasks"].append({
-            "task_id": task_id,
-            "title": title,
-            "status": status
-        })
-
-        self._write_db(db)
-        return f"Task {task_id} created successfully."
+    def _create_task(self, task_id: str, title: str, status: str = "todo", dependencies: list = None) -> str:
+            """Creates a new task in the external system. Prevents duplicates."""
+            if dependencies is None:
+                dependencies = []
+                
+            db = self._read_db()
+            
+            # Check if task already exists
+            for task in db["tasks"]:
+                if task.get("task_id") == task_id:
+                    raise ValueError(f"Task with ID {task_id} already exists in the system.")
+                    
+            db["tasks"].append({
+                "task_id": task_id,
+                "title": title,
+                "status": status,
+                "dependencies": dependencies # add dependecies to the database
+            })
+            self._write_db(db)
+            return f"Task {task_id} created successfully."
 
     
 
