@@ -133,6 +133,19 @@ class WorkflowRunner:
             # --- E. Loop Decision ---
             if review.status == ReviewStatus.APPROVED:
                 print("[LOOP] Plan approved by Reviewer. Breaking loop.")
+                print("[HARNESS] Saving approved tasks to MCP Database...")
+                for task in self.state.task_plan.tasks:
+                    try:
+                        self.mcp_client.call_tool(
+                            "create_task", 
+                            task_id=task.task_id, 
+                            title=task.title, 
+                            status="todo",
+                            dependencies=task.dependencies
+                        )
+                    except ValueError:
+                        pass 
+                
                 break
             else:
                 self.state.replan_rounds += 1
