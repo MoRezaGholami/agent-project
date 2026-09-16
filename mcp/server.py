@@ -1,6 +1,8 @@
 import json
 import os
 from typing import Dict , Any , List
+from duckduckgo_search import DDGS
+
 
 
 DB_FILE = "project_db.json"
@@ -47,7 +49,8 @@ class MCPServer:
             "get_project" : self._get_project ,
             "get_tasks" : self._get_tasks ,
             "create_task": self._create_task,
-            "update_project": self._update_project
+            "update_project": self._update_project,
+            "search_web": self._search_web
         }
 
         if tool_name not in tools :
@@ -102,6 +105,21 @@ class MCPServer:
         })
         self._write_db(db)
         return f"Task {task_id} created successfully."
+
+    def _search_web(self, query: str, max_results: int = 2) -> List[Dict[str, str]]:
+        """Searches the web for tutorials/courses without using LLM API."""
+        if not query:
+            return []
+        try:
+            results = []
+            with DDGS() as ddgs:
+                
+                for r in ddgs.text(query, max_results=max_results):
+                    results.append({"title": r.get("title"), "href": r.get("href")})
+            return results
+        except Exception as e:
+            print(f"[MCP ERROR] Search failed for '{query}': {e}")
+            return []
 
     
 

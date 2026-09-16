@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
-
+from typing import Dict , Any , List
 # ==========================================
 # Enums
 # ==========================================
@@ -47,6 +47,7 @@ class Task(BaseModel):
     effort: TaskEffort = Field(..., description="Estimated effort required.")
     priority: TaskPriority = Field(..., description="Priority level of the task.")
     category: str = Field(..., description="Task category (e.g., Backend, Frontend, DevOps, DB).")
+    search_keywords: str = Field(default="", description="1 or 2 specific keywords to search for a tutorial or course (e.g., 'Django REST tutorial').")
 
 class TaskPlan(BaseModel):
     tasks: List[Task] = Field(..., description="A comprehensive list of all project tasks.")
@@ -66,6 +67,7 @@ class FinalReport(BaseModel):
     tasks: List[Task] = Field(default_factory=list)
     validation_status: str = Field(..., description="Final status of the validation (e.g., Fully Validated, Partially Validated due to limits).")
     warnings: List[str] = Field(default_factory=list, description="Any warnings if the plan maxed out replanning rounds.")
+    learning_resources: Dict[str, List[Dict[str, str]]] = Field(default_factory=dict, description="Mapping of task_id to fetched URLs")
 
 # ==========================================
 # State Model (For Context Engineering)
