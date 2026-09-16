@@ -53,7 +53,8 @@ Rules:
 1. Each task must have a unique ID (e.g., T01, T02).
 2. 'dependencies' must only contain IDs of tasks that MUST be completed before the task can start.
 3. Be granular but avoid micro-management (aim for 5-15 major tasks).
-4. Pay attention to 'Existing System Context'. Do not recreate tasks that already exist in the external system.
+4. Pay attention to 'Existing System Context'. Do not recreate tasks that already exist in the external system. ONLY output the NEW tasks required for the update.
+5. CRITICAL NUMBERING RULE: If there are existing tasks in the 'Existing System Context', your new task IDs MUST continue from the last existing ID. For example, if the database has tasks up to T11, your first new task MUST be T12.
 Output strictly in the requested JSON format."""),
             ("human", """Project Goal: {goal_description}
 

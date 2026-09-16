@@ -30,7 +30,7 @@ Rules:
 1. Extract the main goal and constraints.
 2. Determine complexity (SIMPLE or COMPLEX).
 3. Provide reasoning.
-4. Generate a short, descriptive, snake_case 'project_name' based on the core topic (e.g., 'django_lms', 'merge_sort_script').
+4. Generate a short, snake_case 'project_name'. CRITICAL: If the user is asking to UPDATE or ADD features to an existing project, you MUST guess the original base project name and use it exactly (e.g., use 'django_course_management' DO NOT add words like '_update' or '_new').
 
 Do not write tasks or architecture here. Just route the request."""),
             ("human", "User Request: {user_request}")
