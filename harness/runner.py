@@ -61,6 +61,8 @@ class WorkflowRunner:
         
         self.state.goal = decision.goal
         self.state.complexity = decision.complexity
+        self.state.project_name = decision.project_name
+
 
         # 2. ARCHITECTURE STEP (Conditional Execution)
         if self.state.complexity == ProjectComplexity.COMPLEX:
@@ -90,7 +92,7 @@ class WorkflowRunner:
             # --- A. Fetch MCP Context ---
             print("[HARNESS] Fetching external state from MCP...")
             try:
-                mcp_resp = self.mcp_client.call_tool("get_tasks")
+                mcp_resp = self.mcp_client.call_tool("get_tasks", project_name=self.state.project_name)
                 mcp_context = f"Existing Tasks: {mcp_resp.get('data', [])}\n"
                 if review_feedback_for_planner:
                     mcp_context += f"CRITICAL - PREVIOUS REVIEW FEEDBACK TO FIX:\n{review_feedback_for_planner}"
@@ -141,7 +143,8 @@ class WorkflowRunner:
                             task_id=task.task_id, 
                             title=task.title, 
                             status="todo",
-                            dependencies=task.dependencies
+                            dependencies=task.dependencies,
+                            project_name=self.state.project_name
                         )
                     except ValueError:
                         pass 
