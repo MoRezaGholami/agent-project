@@ -123,16 +123,25 @@ class WorkflowRunner:
                 self.state.goal, 
                 self.state.architecture, 
                 mcp_context,
-                next_task_num # پاس دادن عدد دقیق به ایجنت
+                next_task_num 
             )
             if not task_plan:
                 return self._abort_workflow("Task Planner failed to generate a plan.")
             self.state.task_plan = task_plan
 
-            # --- C. Deterministic Validation Tools ---
+
             print("[HARNESS] Running deterministic Python tools on Task Plan...")
+            
+            
+            db_resp = self.mcp_client.call_tool("get_tasks", project_name=self.state.project_name)
+            existing_tasks = db_resp.get("data", [])
+            existing_ids = [t.get("task_id") for t in existing_tasks]
+            
             tool_errors = []
-            tool_errors.extend(validate_dependencies(task_plan.tasks))
+            
+            tool_errors.extend(validate_dependencies(task_plan.tasks, existing_task_ids=existing_ids))
+            
+            
             tool_errors.extend(detect_cycles(task_plan.tasks))
             _, order_errors = calculate_task_order(task_plan.tasks)
             tool_errors.extend(order_errors)
@@ -141,7 +150,8 @@ class WorkflowRunner:
                 print(f"[HARNESS WARNING] Tools found {len(tool_errors)} logic errors.")
 
             # --- D. Reviewer ---
-            review = self._safe_invoke(self.reviewer.invoke, self.state.architecture, self.state.task_plan, tool_errors)
+            review = self._safe_invoke(self.reviewer.invoke, self.state.architecture, self.state.task_plan, tool_errors , mcp_context)
+
             if not review:
                 # If reviewer fails, we break the loop and return what we have (Graceful Degradation)
                 print("[HARNESS ERROR] Reviewer Agent failed. Stopping validation loop.")
@@ -156,7 +166,7 @@ class WorkflowRunner:
                 print("[HARNESS] Saving approved tasks to MCP Database...")
                 for task in self.state.task_plan.tasks:
                     try:
-                        self.mcp_client.call_tool(
+                        resp = self.mcp_client.call_tool(
                             "create_task", 
                             task_id=task.task_id, 
                             title=task.title, 
@@ -164,6 +174,9 @@ class WorkflowRunner:
                             dependencies=task.dependencies,
                             project_name=self.state.project_name
                         )
+
+                        if resp.get("status") != "success":
+                            print(f"   [ERROR] Failed to save {task.task_id}: {resp.get('message')}")
                     except ValueError:
                         pass 
                 
@@ -173,6 +186,8 @@ class WorkflowRunner:
                 if self.state.replan_rounds > MAX_REPLAN_ROUNDS:
                     print("[LOOP LIMIT] Maximum replanning rounds reached! Forcing stop.")
                     break
+
+                print(f"   [REVIEWER FEEDBACK]: {review.issues}")
                 
                 print("[LOOP] Plan rejected. Generating feedback for next round...")
                 issues_text = "\n".join([f"- {iss.description} ({iss.severity})" for iss in review.issues])
