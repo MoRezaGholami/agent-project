@@ -73,10 +73,10 @@ def main():
     #demo propmt. you can write everything you want.
 
     demo_prompt = (
-        "I want to build a Django-based university course management system "
-        "with PostgreSQL, authentication, REST APIs, automated tests, and Docker deployment."
+        "I want to update the django course management. "
+        "Please add an asynchronous email notification feature for students using Celery and Redis, "
+        "and set up a GitHub Actions CI/CD pipeline for automated testing and deployment."
     )
-
 
     print("\n[USER INPUT]:", demo_prompt)
 
