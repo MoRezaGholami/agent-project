@@ -61,6 +61,8 @@ class WorkflowRunner:
         
         self.state.goal = decision.goal
         self.state.complexity = decision.complexity
+        self.state.project_name = decision.project_name
+
 
         # 2. ARCHITECTURE STEP (Conditional Execution)
         if self.state.complexity == ProjectComplexity.COMPLEX:
@@ -90,29 +92,56 @@ class WorkflowRunner:
             # --- A. Fetch MCP Context ---
             print("[HARNESS] Fetching external state from MCP...")
             try:
-                mcp_resp = self.mcp_client.call_tool("get_tasks")
-                mcp_context = f"Existing Tasks: {mcp_resp.get('data', [])}\n"
+                mcp_resp = self.mcp_client.call_tool("get_tasks", project_name=self.state.project_name)
+                mcp_data = mcp_resp.get('data', [])
+                print(f"   [DEBUG] Looking for exactly: '{self.state.project_name}'")
+                print(f"   [DEBUG] Found {len(mcp_data)} existing tasks in DB for this name.")
+                mcp_context = f"Existing Tasks: {mcp_data}\n"
+                
+                # --- NEW: Calculate next task ID deterministically ---
+                next_task_num = 1
+                if mcp_data:
+                    try:
+                        
+                        existing_ids = [int(t['task_id'].replace('T', '')) for t in mcp_data if str(t.get('task_id', '')).startswith('T')]
+                        if existing_ids:
+                            next_task_num = max(existing_ids) + 1
+                    except Exception as e:
+                        print(f"[HARNESS WARNING] Could not parse existing task IDs: {e}")
+                # ---------------------------------------------------
+                
                 if review_feedback_for_planner:
                     mcp_context += f"CRITICAL - PREVIOUS REVIEW FEEDBACK TO FIX:\n{review_feedback_for_planner}"
             except Exception as e:
                 print(f"[HARNESS ERROR] MCP Failure: {e}")
                 mcp_context = "External system unavailable."
+                next_task_num = 1
 
             # --- B. Task Planner ---
             task_plan = self._safe_invoke(
                 self.task_planner.invoke, 
                 self.state.goal, 
                 self.state.architecture, 
-                mcp_context
+                mcp_context,
+                next_task_num 
             )
             if not task_plan:
                 return self._abort_workflow("Task Planner failed to generate a plan.")
             self.state.task_plan = task_plan
 
-            # --- C. Deterministic Validation Tools ---
+
             print("[HARNESS] Running deterministic Python tools on Task Plan...")
+            
+            
+            db_resp = self.mcp_client.call_tool("get_tasks", project_name=self.state.project_name)
+            existing_tasks = db_resp.get("data", [])
+            existing_ids = [t.get("task_id") for t in existing_tasks]
+            
             tool_errors = []
-            tool_errors.extend(validate_dependencies(task_plan.tasks))
+            
+            tool_errors.extend(validate_dependencies(task_plan.tasks, existing_task_ids=existing_ids))
+            
+            
             tool_errors.extend(detect_cycles(task_plan.tasks))
             _, order_errors = calculate_task_order(task_plan.tasks)
             tool_errors.extend(order_errors)
@@ -121,7 +150,8 @@ class WorkflowRunner:
                 print(f"[HARNESS WARNING] Tools found {len(tool_errors)} logic errors.")
 
             # --- D. Reviewer ---
-            review = self._safe_invoke(self.reviewer.invoke, self.state.architecture, self.state.task_plan, tool_errors)
+            review = self._safe_invoke(self.reviewer.invoke, self.state.architecture, self.state.task_plan, tool_errors , mcp_context)
+
             if not review:
                 # If reviewer fails, we break the loop and return what we have (Graceful Degradation)
                 print("[HARNESS ERROR] Reviewer Agent failed. Stopping validation loop.")
@@ -133,12 +163,31 @@ class WorkflowRunner:
             # --- E. Loop Decision ---
             if review.status == ReviewStatus.APPROVED:
                 print("[LOOP] Plan approved by Reviewer. Breaking loop.")
+                print("[HARNESS] Saving approved tasks to MCP Database...")
+                for task in self.state.task_plan.tasks:
+                    try:
+                        resp = self.mcp_client.call_tool(
+                            "create_task", 
+                            task_id=task.task_id, 
+                            title=task.title, 
+                            status="todo",
+                            dependencies=task.dependencies,
+                            project_name=self.state.project_name
+                        )
+
+                        if resp.get("status") != "success":
+                            print(f"   [ERROR] Failed to save {task.task_id}: {resp.get('message')}")
+                    except ValueError:
+                        pass 
+                
                 break
             else:
                 self.state.replan_rounds += 1
                 if self.state.replan_rounds > MAX_REPLAN_ROUNDS:
                     print("[LOOP LIMIT] Maximum replanning rounds reached! Forcing stop.")
                     break
+
+                print(f"   [REVIEWER FEEDBACK]: {review.issues}")
                 
                 print("[LOOP] Plan rejected. Generating feedback for next round...")
                 issues_text = "\n".join([f"- {iss.description} ({iss.severity})" for iss in review.issues])
@@ -164,7 +213,23 @@ class WorkflowRunner:
     def _build_final_report(self) -> FinalReport:
         self.state.is_finished = True
         
-        # Final calculations (Deterministic)
+        # --- NEW: FETCHING WEB RESOURCES VIA MCP ---
+        resources = {}
+        if self.state.task_plan:
+            print("\n[HARNESS] 🌐 Fetching live learning resources from the Web via MCP...")
+            for task in self.state.task_plan.tasks:
+                if task.search_keywords and task.search_keywords.strip():
+                    try:
+                        print(f"  -> Searching for: '{task.search_keywords}' (Task {task.task_id})")
+                        resp = self.mcp_client.call_tool("search_web", query=task.search_keywords)
+                        if resp.get("status") == "success" and resp.get("data"):
+                            resources[task.task_id] = resp["data"]
+                            print(f"     ✅ Found {len(resp['data'])} links.") 
+                        else:
+                            print(f"     ❌ No valid results returned from MCP.")
+                    except Exception as e:
+                        print(f"     ⚠️ Search tool error: {e}")
+        
         est_duration = -1
         if self.state.task_plan:
              est_duration = estimate_project_duration(self.state.task_plan.tasks)
@@ -188,7 +253,8 @@ class WorkflowRunner:
             architecture=self.state.architecture,
             tasks=self.state.task_plan.tasks if self.state.task_plan else [],
             validation_status=status,
-            warnings=warnings
+            warnings=warnings,
+            learning_resources=resources 
         )
 
 

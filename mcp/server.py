@@ -1,6 +1,8 @@
 import json
 import os
 from typing import Dict , Any , List
+#from duckduckgo_search import DDGS
+from googlesearch import search
 
 
 DB_FILE = "project_db.json"
@@ -13,12 +15,24 @@ class MCPServer:
     """
 
     def __init__(self):
-        self._initialize_db()
+        if not os.path.exists(DB_FILE):
+            self._initialize_db()
 
 
     def _read_db(self) -> Dict[str, Any]:
-        with open(DB_FILE, 'r') as f:
-            return json.load(f)
+        """Reads the DB safely. Recreates it if deleted or corrupted (empty)."""
+        if not os.path.exists(DB_FILE):
+            self._initialize_db()
+            
+        try:
+            with open(DB_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            
+            print("[MCP WARNING] Database file was empty or corrupted. Reinitializing...")
+            self._initialize_db()
+            with open(DB_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
 
     def _write_db(self, data: Dict[str, Any]):
         with open(DB_FILE, 'w') as f:
@@ -28,13 +42,12 @@ class MCPServer:
 
     def _initialize_db(self):
         """Creates an empty mock database if it doesn't exist."""
-        if not os.path.exists(DB_FILE):
-            default_state = {
-                "project_info": {},
-                "tasks": []
-            }
-            with open(DB_FILE, 'w') as f:
-                json.dump(default_state, f, indent=4)
+        default_state = {
+            "project_info": {},
+            "tasks": []
+        }
+        with open(DB_FILE, 'w', encoding='utf-8') as f:
+            json.dump(default_state, f, indent=4)
 
     def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str , Any] :
         """
@@ -47,7 +60,8 @@ class MCPServer:
             "get_project" : self._get_project ,
             "get_tasks" : self._get_tasks ,
             "create_task": self._create_task,
-            "update_project": self._update_project
+            "update_project": self._update_project,
+            "search_web": self._search_web
         }
 
         if tool_name not in tools :
@@ -72,25 +86,62 @@ class MCPServer:
         self._write_db(db)
         return "project updated!"
 
-    def _get_tasks(self) -> List[Dict[str, Any]]:
-        """Returns all currently registered tasks from the external system."""
+    def _get_tasks(self, project_name: str = None) -> List[Dict[str, Any]]:
+        """Returns tasks, optionally filtered by project_name."""
         db = self._read_db()
-        return db.get("tasks", [])
+        tasks = db.get("tasks", [])
+        if project_name:
+            
+            return [t for t in tasks if t.get("project_name") == project_name]
+        return tasks
 
-    def _create_task(self, task_id: str, title: str, status: str = "todo") -> str:
-        """Creates a new task in the external system. Prevents duplicates."""
+    def _create_task(self, task_id: str, title: str, status: str = "todo", dependencies: list = None, project_name: str = "default") -> str:
+        """Creates a new task tagged with a specific project_name."""
+        if dependencies is None:
+            dependencies = []
+            
         db = self._read_db()
-        for task in db["tasks"] :
-            if task.get("task_id") == task_id :
-                raise ValueError(f"Task with ID {task_id} already exists in the system.")
+        
+        
+        for task in db["tasks"]:
+            if task.get("task_id") == task_id and task.get("project_name") == project_name:
+                raise ValueError(f"Task {task_id} already exists in project {project_name}.")
+                
         db["tasks"].append({
             "task_id": task_id,
             "title": title,
-            "status": status
+            "status": status,
+            "dependencies": dependencies,
+            "project_name": project_name  
         })
-
         self._write_db(db)
         return f"Task {task_id} created successfully."
+
+    def _search_web(self, query: str, max_results: int = 2) -> list:
+        """
+        Generates direct search URLs instead of scraping to bypass network blocks.
+        Zero token usage, zero network failure.
+        """
+        import urllib.parse
+        
+        if not query:
+            return []
+            
+       
+        encoded_query = urllib.parse.quote(query)
+        
+        results = [
+            {
+                "title": f"🔍 Google Search: {query}",
+                "href": f"https://www.google.com/search?q={encoded_query}"
+            },
+            {
+                "title": f"📺 YouTube Tutorials: {query}",
+                "href": f"https://www.youtube.com/results?search_query={encoded_query}"
+            }
+        ]
+        
+        return results
 
     
 

@@ -33,6 +33,14 @@ def print_final_report(report) :
     for t in report.tasks:
         deps = f"(Depends on: {', '.join(t.dependencies)})" if t.dependencies else "(No dependencies)"
         print(f"   [{t.task_id}] {t.title} - Effort: {t.effort.value.upper()} {deps}")
+        task_resources = report.learning_resources.get(t.task_id, [])
+        if task_resources:
+            print("       📚 Suggested Resources (Live from Web):")
+            for res in task_resources:
+                
+                short_title = res['title'][:60] + "..." if len(res['title']) > 60 else res['title']
+                print(f"          🔗 {short_title}\n          └─ {res['href']}")
+        print("") 
 
     print("="*60 + "\n")
 
@@ -53,10 +61,10 @@ def main():
     mcp_server = MCPServer()
     mcp_client = MCPClient(mcp_server)
 
-    try:
-        mcp_server.execute_tool("create_task", {"task_id": "T00", "title": "Setup Git Repository", "status": "done"})
-    except ValueError:
-        pass
+    # try:
+    #     mcp_server.execute_tool("create_task", {"task_id": "T00", "title": "Setup Git Repository", "status": "done"})
+    # except ValueError:
+    #     pass
 
 
     runner = WorkflowRunner(llm=llm, mcp_client=mcp_client)
@@ -65,10 +73,10 @@ def main():
     #demo propmt. you can write everything you want.
 
     demo_prompt = (
-        "I want to build a Django-based university course management system "
-        "with PostgreSQL, authentication, REST APIs, automated tests, and Docker deployment."
+        "I want to update the django course management. "
+        "Please add an asynchronous email notification feature for students using Celery and Redis, "
+        "and set up a GitHub Actions CI/CD pipeline for automated testing and deployment."
     )
-
 
     print("\n[USER INPUT]:", demo_prompt)
 

@@ -9,6 +9,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 class OrchestrationDecision(BaseModel):
     goal : ProjectGoal = Field(..., description="The parsed and structured project goal including constraints.")
     complexity: ProjectComplexity = Field(..., description="SIMPLE or COMPLEX based on the request.")
+    project_name: str = Field(..., description="A short, snake_case identifier for this specific project (e.g., 'django_api', 'merge_sort').")
     reasoning: str = Field(..., description="Short explanation for why this complexity was chosen.")
 
 
@@ -26,11 +27,10 @@ class OrchestratorAgent:
 Your job is to analyze the user's initial request.
 
 Rules:
-1. Extract the main goal and any explicit constraints (e.g., specific languages, deadlines, DBs).
-2. Determine the project's complexity:
-   - Choose 'SIMPLE' for basic scripts, single-file tools, small bug fixes, or trivial tasks that DO NOT need a software architecture design.
-   - Choose 'COMPLEX' for web apps, systems with databases, APIs, authentication, microservices, or multi-module projects.
-3. Provide a brief reasoning for your decision.
+1. Extract the main goal and constraints.
+2. Determine complexity (SIMPLE or COMPLEX).
+3. Provide reasoning.
+4. Generate a short, snake_case 'project_name'. CRITICAL: If the user is asking to UPDATE or ADD features to an existing project, you MUST guess the original base project name and use it exactly (e.g., use 'django_course_management' DO NOT add words like '_update' or '_new').
 
 Do not write tasks or architecture here. Just route the request."""),
             ("human", "User Request: {user_request}")

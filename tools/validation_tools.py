@@ -2,27 +2,40 @@
 from models.schemas import Task , TaskEffort
 from typing import List, Dict, Tuple
 
-def validate_dependencies(tasks: List[Task]) -> List[str]:
+
+def validate_dependencies(tasks: List[Task], existing_task_ids: List[str] = None) -> List[str]:
     """
-    Checks if all dependencies declared by tasks actually exist in the task list.
+    Checks if all dependencies declared by tasks actually exist in the NEW task list OR the EXISTING DB.
     """
+    if existing_task_ids is None:
+        existing_task_ids = []
+        
     errors = []
     task_ids = {task.task_id for task in tasks}
     
+    valid_targets = task_ids.union(set(existing_task_ids)) 
+    
     for task in tasks:
         for dep in task.dependencies:
-            if dep not in task_ids:
+            if dep not in valid_targets:
                 errors.append(f"Task {task.task_id} depends on unknown task: {dep}")
                 
     return errors
+
+
 
 
 def detect_cycles(tasks: List[Task]) -> List[str]:
     """
     Uses Depth-First Search (DFS) to detect circular dependencies (cycles) in the task graph.
     """
-    # Build adjacency list
-    adj_list: Dict[str, List[str]] = {task.task_id: task.dependencies for task in tasks}
+    task_ids = {task.task_id for task in tasks}
+    
+    
+    adj_list: Dict[str, List[str]] = {
+        task.task_id: [d for d in task.dependencies if d in task_ids] 
+        for task in tasks
+    }
     
     visited = set()
     rec_stack = set()
@@ -44,7 +57,7 @@ def detect_cycles(tasks: List[Task]) -> List[str]:
         if task.task_id not in visited:
             dfs(task.task_id, set())
             
-    return list(set(errors)) # Return unique errors
+    return list(set(errors))
 
 
 def calculate_task_order(tasks: List[Task]) -> Tuple[List[str], List[str]]:

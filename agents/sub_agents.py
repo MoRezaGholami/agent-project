@@ -50,10 +50,11 @@ class TaskPlannerAgent:
             ("system", """You are a Technical Project Manager.
 Your job is to break down a software architecture into a logical sequence of tasks.
 Rules:
-1. Each task must have a unique ID (e.g., T01, T02).
-2. 'dependencies' must only contain IDs of tasks that MUST be completed before the task can start.
-3. Be granular but avoid micro-management (aim for 5-15 major tasks).
-4. Pay attention to 'Existing System Context'. Do not recreate tasks that already exist in the external system.
+1. 'dependencies' must only contain IDs of tasks that MUST be completed before the task can start.
+2. Be granular but avoid micro-management (aim for 5-15 major tasks).
+3. Do not recreate tasks that already exist in the 'Existing System Context'. ONLY output the NEW tasks required for the update.
+4. CRITICAL NUMBERING RULE: You MUST start your task numbering strictly using the number {next_task_num} (formatted as TXX, e.g., if {next_task_num} is 12, start with T12, then T13). Do NOT start from T01 unless {next_task_num} is 1.
+
 Output strictly in the requested JSON format."""),
             ("human", """Project Goal: {goal_description}
 
@@ -64,17 +65,18 @@ Technologies: {technologies}
 Existing System Context (from MCP):
 {mcp_context}
 
-Generate the Task Plan graph.""")
+Generate the Task Plan graph. The first new task ID must be based on {next_task_num}.""")
         ])
 
-    def invoke(self , goal : ProjectGoal , architecture: ArchitecturePlan, mcp_context: str = "None") -> TaskPlan:
-        print("[AGENT] Task Planner Agent started...")
+    def invoke(self, goal: ProjectGoal, architecture: ArchitecturePlan, mcp_context: str = "None", next_task_num: int = 1) -> TaskPlan:
+        print(f"[AGENT] Task Planner Agent started... (Starting Task ID: T{next_task_num:02d})")
         chain = self.prompt | self.llm_with_structure
         return chain.invoke({
             "goal_description": goal.description,
             "components": ", ".join(architecture.components),
             "technologies": ", ".join(architecture.technologies),
-            "mcp_context": mcp_context
+            "mcp_context": mcp_context,
+            "next_task_num": next_task_num
         })
 
 
@@ -94,17 +96,19 @@ class ReviewerAgent:
     def __init__(self , llm : BaseChatModel):
         self.llm_with_structure = llm.with_structured_output(ReviewResult)
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a strict, detail-oriented Technical Reviewer.
-Your job is to review a proposed Project Plan.
-You will be provided with the Architecture, the Task List, and the output of 'Deterministic Validation Tools' (e.g., cycle detectors).
+            ("system", """You are a Technical Reviewer evaluating a proposed Project Plan.
+You will be provided with the Architecture, the Task List, Existing Tasks (from DB), and 'Deterministic Validation Tools' output.
 
-Rules for approval:
-1. If 'Validation Tool Errors' is not empty, you MUST set status to 'needs_revision' and include those errors in your issues.
-2. Check if the task order makes logical sense (e.g., Database must exist before API).
-3. If tasks are missing for core components (e.g., no testing, no deployment), flag them.
-4. If the plan is solid, set status to 'approved'.
-Do NOT blindly approve everything."""),
+Rules for approval (STRICTLY FOLLOW THESE):
+1. If 'Validation Tool Errors' is not empty, you MUST set status to 'needs_revision' and list the errors.
+2. Check if the task order makes basic logical sense. HOWEVER, do not be overly pedantic about DevOps task ordering (e.g., CI/CD setup depending on testing setup is perfectly valid and standard).
+3. ONLY flag missing tasks (like deployment or testing) if they were explicitly requested in the user's prompt but are completely absent from both Existing Tasks and Proposed Tasks. Do not force them if not requested.
+4. CRITICAL: Tasks can depend on IDs from 'Existing Tasks'. This is 100% valid.
+5. If the proposed plan solves the user's goal and has NO Validation Tool Errors, you MUST set status to 'approved'. Do not reject valid plans based on subjective architectural opinions."""),
             ("human", """Architecture Components: {components}
+
+Existing Tasks (From DB):
+{mcp_context}
 
 Proposed Task List:
 {tasks}
@@ -117,7 +121,7 @@ Review the plan and provide your structured verdict.""")
 
 
 
-    def invoke(self, architecture: ArchitecturePlan, task_plan: TaskPlan, tool_errors: list[str]) -> ReviewResult:
+    def invoke(self, architecture: ArchitecturePlan, task_plan: TaskPlan, tool_errors: list[str], mcp_context: str = "None") -> ReviewResult:
         print("[AGENT] Reviewer Agent started...")
         # Format tasks for the prompt
         formatted_tasks = "\n".join(
@@ -129,7 +133,8 @@ Review the plan and provide your structured verdict.""")
         return chain.invoke({
             "components": ", ".join(architecture.components),
             "tasks": formatted_tasks,
-            "tool_errors": formatted_errors
+            "tool_errors": formatted_errors,
+            "mcp_context": mcp_context  
         })
 
 
