@@ -1,0 +1,7 @@
+langchain
+langchain-openai
+langchain-core
+pydantic
+streamlit
+python-dotenv
+googlesearch-python
