@@ -10,7 +10,7 @@ from tools.validation_tools import validate_dependencies, detect_cycles, calcula
 from mcp.server import MCPClient
 
 MAX_REPLAN_ROUNDS = 2
-MAX_API_RETRIES = 1  # برای جلوگیری از مصرف کل سهمیه در صورت خطای 429
+MAX_API_RETRIES = 1  # limit error handling.
 
 class WorkflowRunner:
     """
@@ -45,7 +45,7 @@ class WorkflowRunner:
                     retries += 1
                 else:
                     print(f"[HARNESS ERROR] Unexpected LLM failure: {e}")
-                    break # Don't retry parsing/logic errors blindly
+                    break 
         return None
 
     def run(self, user_request: str) -> FinalReport:
@@ -213,7 +213,7 @@ class WorkflowRunner:
     def _build_final_report(self) -> FinalReport:
         self.state.is_finished = True
         
-        # --- NEW: FETCHING WEB RESOURCES VIA MCP ---
+        # FETCHING WEB RESOURCES VIA MCP ---
         resources = {}
         if self.state.task_plan:
             print("\n[HARNESS] 🌐 Fetching live learning resources from the Web via MCP...")

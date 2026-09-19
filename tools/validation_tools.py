@@ -107,7 +107,7 @@ def estimate_project_duration(tasks: List[Task]) -> int:
         TaskEffort.HIGH: 10
     }
     
-    # Find start times for each task (Critical Path Method)
+    
     earliest_start = {task.task_id: 0 for task in tasks}
     ordered_tasks, errors = calculate_task_order(tasks)
     

@@ -24,9 +24,7 @@ class ProjectComplexity(str, Enum):
     SIMPLE = "simple"
     COMPLEX = "complex"
 
-# ==========================================
-# Models
-# ==========================================
+
 class ProjectGoal(BaseModel):
     description: str = Field(..., description="The main description of the software project goal.")
     constraints: List[str] = Field(default_factory=list, description="Explicit constraints like specific technologies, budgets, or deadlines.")
@@ -69,9 +67,7 @@ class FinalReport(BaseModel):
     warnings: List[str] = Field(default_factory=list, description="Any warnings if the plan maxed out replanning rounds.")
     learning_resources: Dict[str, List[Dict[str, str]]] = Field(default_factory=dict, description="Mapping of task_id to fetched URLs")
 
-# ==========================================
-# State Model (For Context Engineering)
-# ==========================================
+
 class WorkflowState(BaseModel):
     """
     This model holds the state of our application. 

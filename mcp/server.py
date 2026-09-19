@@ -160,7 +160,7 @@ class MCPClient:
         """
         Simulates an RPC call to the MCP server.
         """
-        # In real MCP, this would serialize to JSON and send over Stdio/HTTP.
+        
         print(f"[MCP_REQUEST] Tool: {tool_name} | Args: {kwargs}")
         response = self.server.execute_tool(tool_name, kwargs)
         print(f"[MCP_RESPONSE] Status: {response['status']}")
