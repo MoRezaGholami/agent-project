@@ -80,6 +80,3 @@ streamlit run app.py
 
 All project tasks and graphs are safely stored locally in `project_db.json`. If you want to perform a factory reset, simply delete this file; the MCP server will automatically regenerate a clean database on the next run.
 
-```
-
-```
