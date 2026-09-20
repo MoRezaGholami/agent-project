@@ -119,15 +119,15 @@ def estimate_project_duration(tasks: List[Task]) -> int:
     for t_id in ordered_tasks:
         task = task_map[t_id]
         duration = effort_days[task.effort]
-        # The earliest this task can finish is its start time + its duration
+        
         finish_time = earliest_start[t_id] + duration
         
-        # Propagate this finish time as the earliest start time for dependent tasks
+        
         for neighbor in tasks:
             if t_id in neighbor.dependencies:
                 earliest_start[neighbor.task_id] = max(earliest_start[neighbor.task_id], finish_time)
                 
-    # The total duration is the maximum finish time of any task
+    
     max_duration = 0
     for task in tasks:
         duration = effort_days[task.effort]
