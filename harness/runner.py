@@ -3,7 +3,7 @@ import logging
 from typing import Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from models.schemas import WorkflowState, FinalReport, ProjectComplexity, ReviewStatus, ArchitecturePlan
+from models.schemas import WorkflowState, FinalReport, ProjectComplexity, ReviewStatus, ArchitecturePlan , ExecutionMode , ReviewResult
 from agents.orchestrator import OrchestratorAgent
 from agents.sub_agents import ArchitectureAgent, TaskPlannerAgent, ReviewerAgent
 from tools.validation_tools import validate_dependencies, detect_cycles, calculate_task_order, estimate_project_duration
@@ -62,6 +62,8 @@ class WorkflowRunner:
         self.state.goal = decision.goal
         self.state.complexity = decision.complexity
         self.state.project_name = decision.project_name
+        self.state.mode = decision.mode
+
 
 
         # 2. ARCHITECTURE STEP (Conditional Execution)
@@ -150,8 +152,14 @@ class WorkflowRunner:
                 print(f"[HARNESS WARNING] Tools found {len(tool_errors)} logic errors.")
 
             # --- D. Reviewer ---
-            review = self._safe_invoke(self.reviewer.invoke, self.state.architecture, self.state.task_plan, tool_errors , mcp_context)
-
+            
+            if self.state.mode == ExecutionMode.FAST and not tool_errors :
+                print("[HARNESS - FAST MODE] Bypassing AI Reviewer for speed. Auto-approving...")
+            
+                review = ReviewResult(status=ReviewStatus.APPROVED, issues=[], suggested_changes=[])
+                
+            else :
+                review = self._safe_invoke(self.reviewer.invoke, self.state.architecture, self.state.task_plan, tool_errors , mcp_context)
             if not review:
                 # If reviewer fails, we break the loop and return what we have (Graceful Degradation)
                 print("[HARNESS ERROR] Reviewer Agent failed. Stopping validation loop.")
@@ -217,7 +225,9 @@ class WorkflowRunner:
 
             elif review.status == ReviewStatus.NEEDS_REVISION :
                 self.state.replan_rounds += 1
-                if self.state.replan_rounds > MAX_REPLAN_ROUNDS:
+
+                current_max_rounds = 4 if self.state.mode == ExecutionMode.THOROUGH else MAX_REPLAN_ROUNDS
+                if self.state.replan_rounds > current_max_rounds:
                     print("[LOOP LIMIT] Maximum replanning rounds reached! Forcing stop.")
                     break
 
