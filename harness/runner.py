@@ -181,7 +181,41 @@ class WorkflowRunner:
                         pass 
                 
                 break
-            else:
+
+            elif review.status == ReviewStatus.HUMAN_REVIEW :
+                print("\n" + "⚠️"*20)
+                print("[HUMAN REQUIRED] The AI Reviewer is unsure and requests your input!")
+                print(f"Reason: {review.issues}")
+                print("⚠️"*20)
+
+                user_feedback = input("\n👉 Type 'y' to forcefully APPROVE, or type feedback to REVISE the plan: ").strip()
+                if user_feedback.lower() == 'y' :
+                    print("[HUMAN] Plan forcefully approved. Saving to Database...")
+                    print("[HARNESS] Saving approved tasks to MCP Database...")
+                    for task in self.state.task_plan.tasks:
+                        try:
+                            resp = self.mcp_client.call_tool(
+                                "create_task", 
+                                task_id=task.task_id, 
+                                title=task.title, 
+                                status="todo",
+                                dependencies=task.dependencies,
+                                project_name=self.state.project_name
+                            )
+    
+                            if resp.get("status") != "success":
+                                print(f"   [ERROR] Failed to save {task.task_id}: {resp.get('message')}")
+                        except ValueError:
+                            pass 
+                    
+                    break
+                else :
+                    print(f"\n[HUMAN] Revision requested: '{user_feedback}'")
+                    review.status = ReviewStatus.NEEDS_REVISION
+                    review_feedback_for_planner = f"HUMAN OVERRIDE FEEDBACK: {user_feedback}. You MUST update the plan to satisfy this."
+
+
+            elif review.status == ReviewStatus.NEEDS_REVISION :
                 self.state.replan_rounds += 1
                 if self.state.replan_rounds > MAX_REPLAN_ROUNDS:
                     print("[LOOP LIMIT] Maximum replanning rounds reached! Forcing stop.")

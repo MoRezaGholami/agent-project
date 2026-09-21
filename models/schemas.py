@@ -19,6 +19,15 @@ class TaskPriority(str, Enum):
 class ReviewStatus(str, Enum):
     APPROVED = "approved"
     NEEDS_REVISION = "needs_revision"
+    HUMAN_REVIEW = "human_review"
+
+
+class ExecutionMode(str, Enum):
+    FAST = "fast"          
+    STANDARD = "standard"  
+    THOROUGH = "thorough"
+
+
 
 class ProjectComplexity(str, Enum):
     SIMPLE = "simple"
@@ -74,6 +83,7 @@ class WorkflowState(BaseModel):
     It is passed through the Harness, but only specific parts are sent to each Sub-Agent.
     """
     project_name: str = Field(default="default_project")
+    mode: ExecutionMode = Field(default=ExecutionMode.STANDARD, description="The execution mode (fast, standard, thorough).")
     goal: Optional[ProjectGoal] = None
     complexity: Optional[ProjectComplexity] = None
     architecture: Optional[ArchitecturePlan] = None
