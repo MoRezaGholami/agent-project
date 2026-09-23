@@ -5,7 +5,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from models.schemas import WorkflowState, FinalReport, ProjectComplexity, ReviewStatus, ArchitecturePlan , ExecutionMode , ReviewResult
 from agents.orchestrator import OrchestratorAgent
-from agents.sub_agents import ArchitectureAgent, TaskPlannerAgent, ReviewerAgent, SecurityAgent , TechLeadAgent
+from agents.sub_agents import ArchitectureAgent, TaskPlannerAgent, ReviewerAgent, SecurityAgent , TechLeadAgent , ClarifierAgent
 from tools.validation_tools import validate_dependencies, detect_cycles, calculate_task_order, estimate_project_duration
 from mcp.server import MCPClient
 
@@ -29,6 +29,8 @@ class WorkflowRunner:
         self.reviewer = ReviewerAgent(llm)
         self.security_agent = SecurityAgent(llm)
         self.tech_lead_agent = TechLeadAgent(llm)
+        self.clarifier_agent = ClarifierAgent(llm)
+
 
 
 
@@ -53,13 +55,47 @@ class WorkflowRunner:
         return None
 
     def run(self, user_request: str) -> FinalReport:
+        print("\n--- [PRE-PLANNING] Requirement Clarification ---")
+        current_request = user_request
+        clarification_rounds = 0
+        MAX_CLARIFICATION_ROUNDS = 2
+
+        while clarification_rounds < MAX_CLARIFICATION_ROUNDS:
+            clarification = self._safe_invoke(self.clarifier_agent.invoke, current_request)
+            if not clarification:
+                return self._abort_workflow("Clarifier Agent failed.")
+                
+            if clarification.is_clear:
+                print("   ✅ [CLARIFIER] Request is clear and actionable. Proceeding to orchestration...")
+                break
+            else:
+                print("\n   ⚠️ [CLARIFIER] The request is too vague. Need more details:")
+                for i, q in enumerate(clarification.questions, 1):
+                    print(f"      {i}. {q}")
+                
+                print("\n   👉 Type your answers (or type 'skip' to force proceed with AI assumptions):")
+                user_answer = input("   Your input: ").strip()
+                
+                if user_answer.lower() == 'skip':
+                    print("   [HUMAN] Forced proceed. System will make reasonable assumptions.")
+                    current_request += "\n[Note: User skipped clarification. AI should make reasonable assumptions.]"
+                    break
+                    
+                
+                current_request += f"\n[User Clarification]: {user_answer}"
+                clarification_rounds += 1
+
+        if clarification_rounds == MAX_CLARIFICATION_ROUNDS:
+            print("   ⚠️ [CLARIFIER] Max clarification rounds reached. Proceeding with current context.")
+        
+
         print("\n==================================================")
         print("[HARNESS] Starting Autonomous Planning Workflow")
         print("==================================================\n")
 
         # 1. ORCHESTRATION STEP
         self.state.current_step = "orchestration"
-        decision = self._safe_invoke(self.orchestrator.invoke, user_request)
+        decision = self._safe_invoke(self.orchestrator.invoke, current_request)
         if not decision:
             return self._abort_workflow("Failed to parse user request due to API error.")
         
