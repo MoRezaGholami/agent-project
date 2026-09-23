@@ -30,12 +30,18 @@ class ArchitectureAgent:
         ])
 
 
-    def invoke(self , goal : ProjectGoal) -> ArchitecturePlan :
+    def invoke(self , goal : ProjectGoal , security_feedback: str = "" ) -> ArchitecturePlan :
         print("[AGENT] Architecture agent started...")
+        
+        
+        context = "\n".join(goal.constraints) if goal.constraints else "None"
+        if security_feedback:
+            context += f"\n\n🚨 CRITICAL SECURITY FEEDBACK FROM PREVIOUS ROUND (YOU MUST FIX THESE):\n{security_feedback}"
+            
         chain = self.prompt | self.llm_with_structure
         return chain.invoke({
             "goal_description": goal.description,
-            "constraints": "\n".join(goal.constraints) if goal.constraints else "None"
+            "constraints": context
         })
 
 class TaskPlannerAgent:
