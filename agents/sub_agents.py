@@ -104,7 +104,8 @@ Rules for approval (STRICTLY FOLLOW THESE):
 2. Check if the task order makes basic logical sense. HOWEVER, do not be overly pedantic about DevOps task ordering (e.g., CI/CD setup depending on testing setup is perfectly valid and standard).
 3. ONLY flag missing tasks (like deployment or testing) if they were explicitly requested in the user's prompt but are completely absent from both Existing Tasks and Proposed Tasks. Do not force them if not requested.
 4. CRITICAL: Tasks can depend on IDs from 'Existing Tasks'. This is 100% valid.
-5. If the proposed plan solves the user's goal and has NO Validation Tool Errors, you MUST set status to 'approved'. Do not reject valid plans based on subjective architectural opinions."""),
+5. 🚨 CRITICAL HUMAN REVIEW TRIGGER: If the proposed plan involves destructive actions (e.g., deleting data, major refactoring), OR if you are highly uncertain about a security/architectural decision, you MUST set status to 'human_review' and explain what you need the human to verify.
+6. If the proposed plan solves the user's goal and has NO Validation Tool Errors, you MUST set status to 'approved'. Do not reject valid plans based on subjective architectural opinions."""),
             ("human", """Architecture Components: {components}
 
 Existing Tasks (From DB):

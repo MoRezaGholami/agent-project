@@ -64,7 +64,7 @@ class ReviewIssue(BaseModel):
     severity: TaskPriority = Field(..., description="Severity of the issue.")
 
 class ReviewResult(BaseModel):
-    status: ReviewStatus = Field(..., description="Whether the plan is approved or needs revision.")
+    status: ReviewStatus = Field(..., description="MUST be 'approve', 'revise', or 'human_review'. Strictly use 'human_review' for destructive actions (like dropping DBs) or critical security concerns.")
     issues: List[ReviewIssue] = Field(default_factory=list, description="List of identified issues if any.")
     suggested_changes: List[str] = Field(default_factory=list, description="Actionable suggestions to fix the issues.")
 

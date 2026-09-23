@@ -73,9 +73,9 @@ def main():
     #demo propmt. you can write everything you want.
 
     demo_prompt = (
-        "I want to update the django course management. "
-        "Please add an asynchronous email notification feature for students using Celery and Redis, "
-        "and set up a GitHub Actions CI/CD pipeline for automated testing and deployment."
+        "We are migrating our enterprise banking production system."
+        " I need a thorough, highly secure plan to drop and delete the old legacy PostgreSQL user database, and migrate all financial records to a new secure MongoDB cluster."
+        " This is a security-critical update involving destructive actions on old tables."
     )
 
     print("\n[USER INPUT]:", demo_prompt)
