@@ -139,4 +139,15 @@ Review the plan and provide your structured verdict.""")
         })
 
 
+class SecurityAgent:
+    """
+    Role: Cybersecurity Analyst
+    Responsibility: Agent-to-Agent debate. Critiques the Architecture Plan for vulnerabilities.
+    """
+
+    def __init__(self , llm : BaseChatModel):
+        self.llm_with_structure = llm.with_structured_output(ReviewResult)
+        
+
+
 
