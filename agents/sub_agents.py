@@ -20,11 +20,14 @@ class ArchitectureAgent:
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are an expert Software Architect. 
             Your ONLY job is to analyze the user's project goal and output a structured high-level architecture.
-            DO NOT write essays. DO NOT write code. 
-            Focus on identifying major components, technologies, and system modules.
-            If there are strict constraints, you MUST respect them."""),
-                        ("human", """Project Goal: {goal_description}
-            Constraints: {constraints}
+            
+            CRITICAL RULES FOR CONFLICTS:
+            1. You must normally respect the User's constraints.
+            2. HOWEVER, if you receive 'SECURITY FEEDBACK' from the Security Agent, this feedback OVERRIDES the User's constraints. You MUST fix the security vulnerabilities (e.g., adding encryption, auth, HTTPS) even if the user explicitly told you not to. Security is non-negotiable.
+            
+            Focus on identifying major components, technologies, and system modules."""),
+            ("human", """Project Goal: {goal_description}
+            Constraints & Context: {constraints}
 
             Generate the architecture plan.""")
         ])
@@ -158,8 +161,8 @@ class SecurityAgent:
 Your ONLY job is to review the proposed Architecture Plan from the Architecture Agent.
 Rules:
 1. Look for glaring security holes (e.g., missing authentication, no encryption, plaintext data, HTTP instead of HTTPS).
-2. If the architecture is insecure, set status to 'revise', list the issues, and provide actionable suggested_changes.
-3. If it looks solid and secure, set status to 'approve'.
+2. If the architecture is insecure, set status to 'needs_revision', list the issues, and provide actionable suggested_changes.
+3. If it looks solid and secure, set status to 'approved'.
 4. Do NOT complain about missing DevOps tasks or task ordering; focus ONLY on architectural security."""),
             ("human", """Proposed Architecture:
 Components: {components}

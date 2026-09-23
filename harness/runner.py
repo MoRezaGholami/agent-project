@@ -5,7 +5,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from models.schemas import WorkflowState, FinalReport, ProjectComplexity, ReviewStatus, ArchitecturePlan , ExecutionMode , ReviewResult
 from agents.orchestrator import OrchestratorAgent
-from agents.sub_agents import ArchitectureAgent, TaskPlannerAgent, ReviewerAgent
+from agents.sub_agents import ArchitectureAgent, TaskPlannerAgent, ReviewerAgent, SecurityAgent
 from tools.validation_tools import validate_dependencies, detect_cycles, calculate_task_order, estimate_project_duration
 from mcp.server import MCPClient
 
@@ -27,6 +27,8 @@ class WorkflowRunner:
         self.architecture_agent = ArchitectureAgent(llm)
         self.task_planner = TaskPlannerAgent(llm)
         self.reviewer = ReviewerAgent(llm)
+        self.security_agent = SecurityAgent(llm)
+
 
     def _safe_invoke(self, agent_method, *args, **kwargs):
         """
@@ -68,12 +70,47 @@ class WorkflowRunner:
 
         # 2. ARCHITECTURE STEP (Conditional Execution)
         if self.state.complexity == ProjectComplexity.COMPLEX:
-            self.state.current_step = "architecture"
-            print("[HARNESS] Complex project detected. Delegating to Architecture Agent.")
-            arch_plan = self._safe_invoke(self.architecture_agent.invoke, self.state.goal)
-            if not arch_plan:
-                return self._abort_workflow("Architecture Agent failed. Cannot continue complex project.")
-            self.state.architecture = arch_plan
+            self.state.current_step = "architecture_debate"
+            print("[HARNESS] Complex project detected. Starting Agent-to-Agent Debate (Architect vs Security).")
+            
+            debate_rounds = 0
+            max_debate_rounds = 2
+            security_feedback = "" 
+            
+            while debate_rounds <= max_debate_rounds:
+                print(f"\n   [DEBATE ROUND {debate_rounds}] Architect generating plan...")
+                
+                
+                arch_plan = self._safe_invoke(self.architecture_agent.invoke, self.state.goal, security_feedback)
+                
+                if not arch_plan:
+                    return self._abort_workflow("Architecture Agent failed.")
+
+                print(f"   -> Architect's Tech Stack: {', '.join(arch_plan.technologies)}")
+                print(f"   -> Architect's Decisions: {arch_plan.architecture_decisions[0]} ...")
+                
+                sec_review = self._safe_invoke(self.security_agent.invoke, arch_plan)
+                if not sec_review:
+                     return self._abort_workflow("Security Agent failed.")
+                     
+                
+                if sec_review.status == ReviewStatus.APPROVED:
+                    print("   ✅ [AGENT DEBATE] Security Agent APPROVED the architecture.")
+                    self.state.architecture = arch_plan
+                    break
+                else:
+                    issues_list = [iss.description for iss in sec_review.issues]
+                    print(f"   ❌ [AGENT DEBATE] Security Agent REJECTED. Issues: {issues_list}")
+                    
+                    if debate_rounds == max_debate_rounds:
+                        print("   ⚠️ [AGENT DEBATE] Max rounds reached. Proceeding with current architecture anyway.")
+                        self.state.architecture = arch_plan
+                        break
+                        
+                    
+                    print("   -> Forcing Architect to redesign based on security feedback...")
+                    security_feedback = "\n".join([f"- {c}" for c in sec_review.suggested_changes])
+                    debate_rounds += 1
         else:
             print("[HARNESS] Simple project detected. Skipping Architecture Agent.")
             # Create a dummy architecture for simple projects to keep types consistent

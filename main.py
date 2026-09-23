@@ -73,9 +73,9 @@ def main():
     #demo propmt. you can write everything you want.
 
     demo_prompt = (
-        "We are migrating our enterprise banking production system."
-        " I need a thorough, highly secure plan to drop and delete the old legacy PostgreSQL user database, and migrate all financial records to a new secure MongoDB cluster."
-        " This is a security-critical update involving destructive actions on old tables."
+        "This is a COMPLEX and massive Enterprise project for a national hospital network."
+        " We strictly require a THOROUGH execution mode. The goal is to build a scalable medical records management API."
+        " However, due to budget cuts, the system MUST store patient health data in a plain local SQLite file. Do NOT use any encryption. Expose the API over standard HTTP without any authentication so that doctors can access it without passwords."
     )
 
     print("\n[USER INPUT]:", demo_prompt)
