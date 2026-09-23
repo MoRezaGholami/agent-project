@@ -5,7 +5,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from models.schemas import WorkflowState, FinalReport, ProjectComplexity, ReviewStatus, ArchitecturePlan , ExecutionMode , ReviewResult
 from agents.orchestrator import OrchestratorAgent
-from agents.sub_agents import ArchitectureAgent, TaskPlannerAgent, ReviewerAgent, SecurityAgent
+from agents.sub_agents import ArchitectureAgent, TaskPlannerAgent, ReviewerAgent, SecurityAgent , TechLeadAgent
 from tools.validation_tools import validate_dependencies, detect_cycles, calculate_task_order, estimate_project_duration
 from mcp.server import MCPClient
 
@@ -28,6 +28,8 @@ class WorkflowRunner:
         self.task_planner = TaskPlannerAgent(llm)
         self.reviewer = ReviewerAgent(llm)
         self.security_agent = SecurityAgent(llm)
+        self.tech_lead_agent = TechLeadAgent(llm)
+
 
 
     def _safe_invoke(self, agent_method, *args, **kwargs):
@@ -103,9 +105,22 @@ class WorkflowRunner:
                     print(f"   ❌ [AGENT DEBATE] Security Agent REJECTED. Issues: {issues_list}")
                     
                     if debate_rounds == max_debate_rounds:
-                        print("   ⚠️ [AGENT DEBATE] Max rounds reached. Proceeding with current architecture anyway.")
-                        self.state.architecture = arch_plan
-                        break
+                        print("\n   🚨 [ESCALATION] Deadlock reached! Agents cannot agree.")
+                        print("   -> Escalating to Tech Lead Agent (CTO) for final executive decision...")
+                        
+                        final_arch = self._safe_invoke(
+                            self.tech_lead_agent.invoke, 
+                            self.state.goal, 
+                            arch_plan, 
+                            sec_review.issues
+                        )
+                        
+                        if not final_arch:
+                            return self._abort_workflow("Tech Lead Agent failed during escalation.")
+                            
+                        print("   ✅ [ESCALATION RESOLVED] Tech Lead forced a compromised architecture.")
+                        self.state.architecture = final_arch
+                        break 
                         
                     
                     print("   -> Forcing Architect to redesign based on security feedback...")

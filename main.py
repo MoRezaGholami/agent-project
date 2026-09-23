@@ -73,9 +73,9 @@ def main():
     #demo propmt. you can write everything you want.
 
     demo_prompt = (
-        "This is a COMPLEX and massive Enterprise project for a national hospital network."
-        " We strictly require a THOROUGH execution mode. The goal is to build a scalable medical records management API."
-        " However, due to budget cuts, the system MUST store patient health data in a plain local SQLite file. Do NOT use any encryption. Expose the API over standard HTTP without any authentication so that doctors can access it without passwords."
+        "This is a COMPLEX medical project. We need a local network API to store patient data."
+        "CRITICAL HARDWARE CONSTRAINT: Our legacy hospital hardware is from 1990. It physically CANNOT process SSL/TLS (no HTTPS allowed) and it has zero capacity for any encryption libraries or password hashing algorithms."
+        " You MUST use plain HTTP and plaintext storage. You are STRICTLY FORBIDDEN from adding any security libraries like bcrypt, crypto, or JWT."
     )
 
     print("\n[USER INPUT]:", demo_prompt)

@@ -19,17 +19,18 @@ class ArchitectureAgent:
         self.llm_with_structure = llm.with_structured_output(ArchitecturePlan)
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are an expert Software Architect. 
-            Your ONLY job is to analyze the user's project goal and output a structured high-level architecture.
-            
-            CRITICAL RULES FOR CONFLICTS:
-            1. You must normally respect the User's constraints.
-            2. HOWEVER, if you receive 'SECURITY FEEDBACK' from the Security Agent, this feedback OVERRIDES the User's constraints. You MUST fix the security vulnerabilities (e.g., adding encryption, auth, HTTPS) even if the user explicitly told you not to. Security is non-negotiable.
-            
-            Focus on identifying major components, technologies, and system modules."""),
-            ("human", """Project Goal: {goal_description}
-            Constraints & Context: {constraints}
+Your ONLY job is to analyze the user's project goal and output a structured high-level architecture.
 
-            Generate the architecture plan.""")
+CRITICAL RULES FOR CONFLICTS:
+1. You must normally try to resolve 'SECURITY FEEDBACK' by adding modern security practices (encryption, auth, HTTPS).
+2. 🛑 UNBREAKABLE LIMITS: You CANNOT violate strict physical, hardware, or absolute financial constraints explicitly set by the user (e.g., "hardware physically cannot process SSL", "budget is absolutely $0"). 
+3. If the Security Agent demands something that violates an UNBREAKABLE LIMIT, you MUST hold your ground! Do not magically upgrade hardware or invent budget. Keep the architecture within the user's physical limits and state this constraint clearly in your 'architecture_decisions'.
+
+Focus on identifying major components, technologies, and system modules."""),
+            ("human", """Project Goal: {goal_description}
+Constraints & Context: {constraints}
+
+Generate the architecture plan.""")
         ])
 
 
@@ -182,6 +183,55 @@ Review this architecture for security vulnerabilities.""")
             "decisions": "\n".join(architecture.architecture_decisions)
         })
 
+
+
+class TechLeadAgent :
+    """
+    Role: Chief Technology Officer (CTO) / Tech Lead
+    Responsibility: Resolves deadlocks between Architecture Agent and Security Agent by making pragmatic trade-offs.
+    """
+
+    def __init__(self , llm : BaseChatModel) :
+        self.llm_with_structure = llm.with_structured_output(ArchitecturePlan)
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are the Chief Technology Officer (CTO).
+The Architecture Agent and Security Agent have reached a DEADLOCK. They cannot agree on a design that satisfies both the User's constraints and strict Security standards.
+
+Your job is to act as the Mediator and make the FINAL executive decision.
+Rules:
+1. Make pragmatic trade-offs: Balance business reality (cost, performance, user constraints) with acceptable security.
+2. If the security demands are unrealistic for the project scope (e.g., Enterprise security on a $0 budget), explicitly downgrade the security to a "good enough" standard.
+3. If the user's constraints are fundamentally illegal/dangerous, enforce basic security but keep it as lightweight as possible.
+4. Output the FINAL, compromised Architecture Plan."""),
+            ("human", """Project Goal & User Constraints:
+{goal}
+
+Last Proposed Architecture (by Architect):
+{arch_plan}
+
+Unresolved Security Issues (by Security Agent):
+{security_issues}
+
+As the CTO, resolve this conflict and output the final practical architecture.""")
+        ])
+
+
+
+    def invoke(self , goal : ProjectGoal , architecture: ArchitecturePlan, security_issues: list) -> ArchitecturePlan :
+        print("[AGENT] Tech Lead Agent (CTO) is analyzing the deadlock...")
+
+
+        issues_text = "\n".join([f"- {iss.description}" for iss in security_issues])
+        
+        
+        arch_text = f"Components: {architecture.components}\nTech: {architecture.technologies}"
+        
+        chain = self.prompt | self.llm_with_structure
+        return chain.invoke({
+            "goal": goal.description,
+            "arch_plan": arch_text,
+            "security_issues": issues_text
+        })
 
     
 
