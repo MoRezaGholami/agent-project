@@ -147,7 +147,35 @@ class SecurityAgent:
 
     def __init__(self , llm : BaseChatModel):
         self.llm_with_structure = llm.with_structured_output(ReviewResult)
-        
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a Cybersecurity Expert. 
+Your ONLY job is to review the proposed Architecture Plan from the Architecture Agent.
+Rules:
+1. Look for glaring security holes (e.g., missing authentication, no encryption, plaintext data, HTTP instead of HTTPS).
+2. If the architecture is insecure, set status to 'revise', list the issues, and provide actionable suggested_changes.
+3. If it looks solid and secure, set status to 'approve'.
+4. Do NOT complain about missing DevOps tasks or task ordering; focus ONLY on architectural security."""),
+            ("human", """Proposed Architecture:
+Components: {components}
+Technologies: {technologies}
+Decisions: {decisions}
+
+Review this architecture for security vulnerabilities.""")
+        ])
+
+
+    def invoke(self, architecture: ArchitecturePlan) -> ReviewResult:
+        print("[AGENT] Security Agent is reviewing the architecture...")
+        chain = self.prompt | self.llm_with_structure
+        return chain.invoke({
+            "components": ", ".join(architecture.components),
+            "technologies": ", ".join(architecture.technologies),
+            "decisions": "\n".join(architecture.architecture_decisions)
+        })
+
+
+    
+
 
 
 
