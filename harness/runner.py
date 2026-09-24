@@ -5,9 +5,10 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from models.schemas import WorkflowState, FinalReport, ProjectComplexity, ReviewStatus, ArchitecturePlan , ExecutionMode , ReviewResult
 from agents.orchestrator import OrchestratorAgent
-from agents.sub_agents import ArchitectureAgent, TaskPlannerAgent, ReviewerAgent, SecurityAgent , TechLeadAgent , ClarifierAgent
+from agents.sub_agents import ArchitectureAgent, TaskPlannerAgent, ReviewerAgent, SecurityAgent , TechLeadAgent , ClarifierAgent , ImplementationTutorAgent
 from tools.validation_tools import validate_dependencies, detect_cycles, calculate_task_order, estimate_project_duration
 from mcp.server import MCPClient
+from tools.utils import WorkspaceManager
 
 MAX_REPLAN_ROUNDS = 2
 MAX_API_RETRIES = 1  # limit error handling.
@@ -30,6 +31,7 @@ class WorkflowRunner:
         self.security_agent = SecurityAgent(llm)
         self.tech_lead_agent = TechLeadAgent(llm)
         self.clarifier_agent = ClarifierAgent(llm)
+        self.tutor_agent = ImplementationTutorAgent(llm)
 
 
 
@@ -325,8 +327,107 @@ class WorkflowRunner:
                 issues_text = "\n".join([f"- {iss.description} ({iss.severity})" for iss in review.issues])
                 changes_text = "\n".join([f"- {c}" for c in review.suggested_changes])
                 review_feedback_for_planner = f"Issues:\n{issues_text}\nSuggestions:\n{changes_text}"
+
+        # ==================================================
+        # 4. SCAFFOLDING PHASE (Generating Real Files + Auto-Healing)
+        # ==================================================
+        print("\n==================================================")
+        print("[HARNESS] 🏗️ Bootstrapping Project Files (Scaffolding Phase)")
+        print("==================================================")
+
         
-        # 4. FINALIZE (Build Final Report)
+        if hasattr(self.state, 'task_plan') and self.state.task_plan and self.state.architecture:
+            workspace = WorkspaceManager()
+            tech_stack_str = ", ".join(self.state.architecture.technologies)
+            generated_files_info = []
+            
+            for task in self.state.task_plan.tasks:
+                
+                effort_str = str(task.effort).upper()
+                
+                
+                # if "HIGH" not in effort_str and "MEDIUM" not in effort_str: 
+                #     continue 
+                    
+                max_retries = 3
+                error_feedback = ""
+                
+                # --- REAL LOOP ENGINEERING & ERROR HANDLING ---
+                for attempt in range(1, max_retries + 1):
+                    try:
+                        
+                        implementation = self._safe_invoke(
+                            self.tutor_agent.invoke, 
+                            task.title, 
+                            tech_stack_str, 
+                            error_feedback
+                        )
+                        
+                        if not implementation:
+                            raise ValueError("LLM failed to return structured data.")
+
+                        
+                        arch_techs_lower = [t.lower() for t in self.state.architecture.technologies]
+                        hallucinated_techs = [
+                            tech for tech in implementation.used_technologies 
+                            if tech.lower() not in arch_techs_lower
+                        ]
+                        
+                        if hallucinated_techs:
+                            raise ValueError(f"Hallucination! You used {hallucinated_techs}, but our approved stack is ONLY: {tech_stack_str}.")
+
+                        
+                        workspace.write_file(
+                            self.state.project_name, 
+                            implementation.suggested_filename, 
+                            implementation.content
+                        )
+                        
+                        
+                        generated_files_info.append({
+                            "task": task.title,
+                            "file": implementation.suggested_filename
+                        })
+                        break 
+
+                    except Exception as e:
+                        error_msg = str(e)
+                        print(f"   ⚠️ [VALIDATION/OS ERROR] Attempt {attempt}/{max_retries} failed.")
+                        print(f"   -> Reason: {error_msg[:150]}...")
+                        
+                        if attempt == max_retries:
+                            print("   🛑 [GRACEFUL DEGRADATION] Max retries reached. Skipping file generation for this task.")
+                            break
+                        
+                        
+                        error_feedback = error_msg
+                        print("   🩹 [AUTO-HEALING] Feeding error back to LLM for self-correction...")
+
+            # ==================================================
+            # 5. GENERATE FINAL DOCUMENTATION (README.md)
+            # ==================================================
+            if generated_files_info:
+                print("\n[HARNESS] 📝 Generating final Project Documentation (README)...")
+                
+                doc_context = "\n".join([f"- File: '{f['file']}' (Created for task: {f['task']})" for f in generated_files_info])
+                
+                readme_prompt = f"""Write a professional and concise README.md for a project named '{self.state.project_name}'.
+The architecture uses: {tech_stack_str}.
+Here are the files that were automatically generated for this project:
+{doc_context}
+Please explain briefly what this project does and what each file is for."""
+
+                try:
+                    
+                    readme_content = self.tutor_agent.llm.invoke(readme_prompt).content
+                    workspace.write_file(self.state.project_name, "README.md", readme_content)
+                    print(f"\n🎉 [SUCCESS] Project successfully bootstrapped! Check the 'project_workspaces/{self.state.project_name}' folder on your computer.")
+                except Exception as e:
+                    print(f"   ⚠️ Failed to generate README: {e}")
+        else:
+            print("   ⚠️ [SKIP] Task plan or architecture missing. Skipping scaffolding phase.")
+
+        # 6. FINALIZE (Build Final Report)
         return self._build_final_report()
 
 

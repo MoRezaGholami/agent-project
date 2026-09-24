@@ -285,7 +285,18 @@ Task Title: {task_title}
 Generate the implementation file.""")
         ])
 
-    
+    def invoke(self, task_title: str, tech_stack: str, error_feedback: str = "") -> TaskImplementation:
+        print(f"\n[TUTOR] 🧑‍💻 Writing implementation for task: '{task_title}'...")
+        error_context = ""
+        if error_feedback:
+            error_context = f"🚨 PREVIOUS ATTEMPT FAILED. FIX THIS ERROR:\n{error_feedback}"
+
+        chain = self.prompt | self.llm_with_structure
+        return chain.invoke({
+            "tech_stack": tech_stack, 
+            "task_title": task_title, 
+            "error_context": error_context
+        })
 
 
 
