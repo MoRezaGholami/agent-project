@@ -99,4 +99,19 @@ class WorkflowState(BaseModel):
 class ClarificationResult(BaseModel):
     is_clear: bool = Field(..., description="True if the request has enough technical detail to start architecture planning. False if it is too vague.")
     questions: List[str] = Field(..., description="If is_clear is False, list 1 to 3 specific questions to ask the user. If True, return an empty list.")
-    
+
+
+
+class TaskImplementation(BaseModel):
+    suggested_filename: str = Field(
+        ..., 
+        description="Name of the file to be created (e.g., 'server.js', 'auth_guide.txt', 'schema.sql'). MUST include extension."
+    )
+    content: str = Field(
+        ..., 
+        description="The actual starter code, configuration, or step-by-step tutorial for this task."
+    )
+    used_technologies: List[str] = Field(
+        ..., 
+        description="List of technologies explicitly used or mentioned in this file."
+    )
