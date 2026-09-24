@@ -419,7 +419,7 @@ Please explain briefly what this project does and what each file is for."""
 
                 try:
                     
-                    readme_content = self.tutor_agent.llm.invoke(readme_prompt).content
+                    readme_content = self.llm.invoke(readme_prompt).content
                     workspace.write_file(self.state.project_name, "README.md", readme_content)
                     print(f"\n🎉 [SUCCESS] Project successfully bootstrapped! Check the 'project_workspaces/{self.state.project_name}' folder on your computer.")
                 except Exception as e:
