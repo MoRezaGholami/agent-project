@@ -263,20 +263,20 @@ DO NOT ask questions if the user has provided a reasonable amount of constraints
 
 class ImplementationTutorAgent:
     """
-    Role: Senior Developer / Tutor
-    Responsibility: Generates starter code or tutorial files for complex tasks with Accumulative Context.
+    Role: Senior Software Architect
+    Responsibility: Generates SKELETON code and boilerplate to demonstrate architecture and dependencies, avoiding full business logic implementation.
     """
-
     def __init__(self, llm):
         self.llm_with_structure = llm.with_structured_output(TaskImplementation)
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a Senior Developer bootstrapping a project.
-For the given task, generate EITHER starter code OR a detailed text tutorial.
+            ("system", """You are a Senior Software Architect bootstrapping a new project.
+Your goal is to generate SKELETON CODE (Boilerplate) for the given task to demonstrate the project's structural layout.
 
 CRITICAL RULES:
-1. STRICT ARCHITECTURE: Adhere ONLY to the Approved Architecture Stack. 
-2. FILENAME: Provide a logical filename with the correct extension.
-3. 🧠 INTEGRATION (CRITICAL): You will be provided with the 'Existing Codebase'. You MUST read it and write your new code to integrate seamlessly with it. Import classes/functions from existing files correctly. Do not duplicate existing logic!"""),
+1. STRICT ARCHITECTURE: Adhere ONLY to the Approved Architecture Stack.
+2. SKELETON ONLY (NO FULL LOGIC): DO NOT attempt to write complete, functional business logic. Focus heavily on correct class definitions, method signatures, docstrings, and proper imports. Use `pass`, `...`, or `# TODO` comments for the actual implementation details.
+3. DEPENDENCY GRAPH (INTEGRATION): Read the 'Existing Codebase'. You MUST correctly import existing classes/functions to prove how different files connect and interact.
+4. FILENAME: Provide a logical filename with the correct extension."""),
             ("human", """Approved Architecture Stack: {tech_stack}
 Task Title: {task_title}
 
@@ -286,11 +286,11 @@ Task Title: {task_title}
 
 {error_context}
 
-Generate the implementation file.""")
+Generate the skeleton code file.""")
         ])
 
     def invoke(self, task_title: str, tech_stack: str, existing_codebase: str, error_feedback: str = "") -> TaskImplementation:
-        print(f"\n[TUTOR] 🧑‍💻 Writing implementation for task: '{task_title}'...")
+        print(f"\n[TUTOR] 🏗️ Generating skeleton code for task: '{task_title}'...")
         error_context = ""
         if error_feedback:
             error_context = f"🚨 PREVIOUS ATTEMPT FAILED. FIX THIS ERROR:\n{error_feedback}"
