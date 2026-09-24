@@ -341,32 +341,27 @@ class WorkflowRunner:
             tech_stack_str = ", ".join(self.state.architecture.technologies)
             generated_files_info = []
             
+            
+            current_codebase = "" 
+            
             for task in self.state.task_plan.tasks:
-                
                 effort_str = str(task.effort).upper()
-                
-                
-                # if "HIGH" not in effort_str and "MEDIUM" not in effort_str: 
-                #     continue 
-                    
                 max_retries = 3
                 error_feedback = ""
                 
                 # --- REAL LOOP ENGINEERING & ERROR HANDLING ---
                 for attempt in range(1, max_retries + 1):
                     try:
-                        
                         implementation = self._safe_invoke(
                             self.tutor_agent.invoke, 
                             task.title, 
                             tech_stack_str, 
+                            current_codebase, 
                             error_feedback
                         )
                         
                         if not implementation:
                             raise ValueError("LLM failed to return structured data.")
-
-                        
                         arch_techs_lower = [t.lower() for t in self.state.architecture.technologies]
                         hallucinated_techs = [
                             tech for tech in implementation.used_technologies 
@@ -375,19 +370,20 @@ class WorkflowRunner:
                         
                         if hallucinated_techs:
                             raise ValueError(f"Hallucination! You used {hallucinated_techs}, but our approved stack is ONLY: {tech_stack_str}.")
-
-                        
                         workspace.write_file(
                             self.state.project_name, 
                             implementation.suggested_filename, 
                             implementation.content
                         )
                         
-                        
                         generated_files_info.append({
                             "task": task.title,
                             "file": implementation.suggested_filename
                         })
+                        
+                        
+                        current_codebase += f"\n\n--- File: {implementation.suggested_filename} ---\n{implementation.content}\n"
+                        
                         break 
 
                     except Exception as e:

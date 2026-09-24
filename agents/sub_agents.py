@@ -264,28 +264,32 @@ DO NOT ask questions if the user has provided a reasonable amount of constraints
 class ImplementationTutorAgent:
     """
     Role: Senior Developer / Tutor
-    Responsibility: Generates starter code or tutorial files for complex tasks.
+    Responsibility: Generates starter code or tutorial files for complex tasks with Accumulative Context.
     """
 
-    def __init__(self, llm: BaseChatModel):
+    def __init__(self, llm):
         self.llm_with_structure = llm.with_structured_output(TaskImplementation)
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a Senior Developer bootstrapping a project.
 For the given task, generate EITHER starter code OR a detailed text tutorial.
 
 CRITICAL RULES:
-1. You MUST STRICTLY adhere to the Approved Architecture Stack. 
-2. Do NOT use or suggest technologies outside the approved stack.
-3. Provide a logical filename with the correct extension (e.g., .py, .js, .txt, .md)."""),
+1. STRICT ARCHITECTURE: Adhere ONLY to the Approved Architecture Stack. 
+2. FILENAME: Provide a logical filename with the correct extension.
+3. 🧠 INTEGRATION (CRITICAL): You will be provided with the 'Existing Codebase'. You MUST read it and write your new code to integrate seamlessly with it. Import classes/functions from existing files correctly. Do not duplicate existing logic!"""),
             ("human", """Approved Architecture Stack: {tech_stack}
 Task Title: {task_title}
+
+=== Existing Codebase ===
+{existing_codebase}
+=========================
 
 {error_context}
 
 Generate the implementation file.""")
         ])
 
-    def invoke(self, task_title: str, tech_stack: str, error_feedback: str = "") -> TaskImplementation:
+    def invoke(self, task_title: str, tech_stack: str, existing_codebase: str, error_feedback: str = "") -> TaskImplementation:
         print(f"\n[TUTOR] 🧑‍💻 Writing implementation for task: '{task_title}'...")
         error_context = ""
         if error_feedback:
@@ -295,6 +299,7 @@ Generate the implementation file.""")
         return chain.invoke({
             "tech_stack": tech_stack, 
             "task_title": task_title, 
+            "existing_codebase": existing_codebase if existing_codebase else "No files created yet.",
             "error_context": error_context
         })
 
