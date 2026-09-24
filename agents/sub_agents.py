@@ -6,7 +6,8 @@ from models.schemas import (
     ArchitecturePlan,
     TaskPlan,
     ReviewResult,
-    ClarificationResult
+    ClarificationResult,
+    TaskImplementation
 
 )
 
@@ -257,7 +258,35 @@ DO NOT ask questions if the user has provided a reasonable amount of constraints
         print("[AGENT] Clarifier Agent (Product Manager) is evaluating the request...")
         chain = self.prompt | self.llm_with_structure
         return chain.invoke({"user_request": user_request})
+
+
+
+class ImplementationTutorAgent:
+    """
+    Role: Senior Developer / Tutor
+    Responsibility: Generates starter code or tutorial files for complex tasks.
+    """
+
+    def __init__(self, llm: BaseChatModel):
+        self.llm_with_structure = llm.with_structured_output(TaskImplementation)
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a Senior Developer bootstrapping a project.
+For the given task, generate EITHER starter code OR a detailed text tutorial.
+
+CRITICAL RULES:
+1. You MUST STRICTLY adhere to the Approved Architecture Stack. 
+2. Do NOT use or suggest technologies outside the approved stack.
+3. Provide a logical filename with the correct extension (e.g., .py, .js, .txt, .md)."""),
+            ("human", """Approved Architecture Stack: {tech_stack}
+Task Title: {task_title}
+
+{error_context}
+
+Generate the implementation file.""")
+        ])
+
     
+
 
 
 
