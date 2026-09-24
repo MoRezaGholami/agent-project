@@ -5,7 +5,8 @@ from models.schemas import (
     ProjectGoal,
     ArchitecturePlan,
     TaskPlan,
-    ReviewResult
+    ReviewResult,
+    ClarificationResult
 
 )
 
@@ -233,6 +234,29 @@ As the CTO, resolve this conflict and output the final practical architecture.""
             "security_issues": issues_text
         })
 
+
+
+class ClarifierAgent:
+    """
+    Role: Product Manager
+    Responsibility: Analyzes the initial request to ensure it's actionable and not too ambiguous before planning starts.
+    """
+
+    def __init__(self, llm):
+        
+        self.llm_with_structure = llm.with_structured_output(ClarificationResult)
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are an expert Product Manager. Your job is to review the user's software project request.
+If the request is too vague (e.g., "build a store app" or "make a game"), set 'is_clear' to False and ask 1 to 3 targeted technical questions (e.g., target platforms, database preference, budget).
+If the request is already detailed enough to derive components and constraints, set 'is_clear' to True.
+DO NOT ask questions if the user has provided a reasonable amount of constraints. Be pragmatic."""),
+            ("human", "User Request: {user_request}")
+        ])
+
+    def invoke(self, user_request: str) -> ClarificationResult:
+        print("[AGENT] Clarifier Agent (Product Manager) is evaluating the request...")
+        chain = self.prompt | self.llm_with_structure
+        return chain.invoke({"user_request": user_request})
     
 
 
