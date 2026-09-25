@@ -6,7 +6,8 @@ from models.schemas import (
     ArchitecturePlan,
     TaskPlan,
     ReviewResult,
-    ClarificationResult
+    ClarificationResult,
+    TaskImplementation
 
 )
 
@@ -257,7 +258,51 @@ DO NOT ask questions if the user has provided a reasonable amount of constraints
         print("[AGENT] Clarifier Agent (Product Manager) is evaluating the request...")
         chain = self.prompt | self.llm_with_structure
         return chain.invoke({"user_request": user_request})
-    
+
+
+
+class ImplementationTutorAgent:
+    """
+    Role: Senior Software Architect
+    Responsibility: Generates SKELETON code and boilerplate to demonstrate architecture and dependencies, avoiding full business logic implementation.
+    """
+    def __init__(self, llm):
+        self.llm_with_structure = llm.with_structured_output(TaskImplementation)
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a Senior Software Architect bootstrapping a new project.
+Your goal is to generate SKELETON CODE (Boilerplate) for the given task to demonstrate the project's structural layout.
+
+CRITICAL RULES:
+1. STRICT ARCHITECTURE: Adhere ONLY to the Approved Architecture Stack.
+2. SKELETON ONLY (NO FULL LOGIC): DO NOT attempt to write complete, functional business logic. Focus heavily on correct class definitions, method signatures, docstrings, and proper imports. Use `pass`, `...`, or `# TODO` comments for the actual implementation details.
+3. DEPENDENCY GRAPH (INTEGRATION): Read the 'Existing Codebase'. You MUST correctly import existing classes/functions to prove how different files connect and interact.
+4. FILENAME: Provide a logical filename with the correct extension."""),
+            ("human", """Approved Architecture Stack: {tech_stack}
+Task Title: {task_title}
+
+=== Existing Codebase ===
+{existing_codebase}
+=========================
+
+{error_context}
+
+Generate the skeleton code file.""")
+        ])
+
+    def invoke(self, task_title: str, tech_stack: str, existing_codebase: str, error_feedback: str = "") -> TaskImplementation:
+        print(f"\n[TUTOR] 🏗️ Generating skeleton code for task: '{task_title}'...")
+        error_context = ""
+        if error_feedback:
+            error_context = f"🚨 PREVIOUS ATTEMPT FAILED. FIX THIS ERROR:\n{error_feedback}"
+
+        chain = self.prompt | self.llm_with_structure
+        return chain.invoke({
+            "tech_stack": tech_stack, 
+            "task_title": task_title, 
+            "existing_codebase": existing_codebase if existing_codebase else "No files created yet.",
+            "error_context": error_context
+        })
+
 
 
 

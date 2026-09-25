@@ -31,9 +31,9 @@ Rules:
 1. Extract the main goal and constraints.
 2. Determine complexity (SIMPLE or COMPLEX).
 3. Determine execution mode (FAST, STANDARD, THOROUGH):
-   - FAST: Quick scripts, minor updates, user asks for rapid results.
-   - STANDARD: Normal development workflows.
-   - THOROUGH: Enterprise architecture, security-critical features, high reliability needs.
+    - FAST: Use for low-risk, internal, or trivial tools (e.g., "a script to rename files", "a simple to-do list").
+    - STANDARD: Use for normal applications with moderate risk (e.g., "a personal blog", "a weather app").
+    - THOROUGH: Use ONLY for high-risk, enterprise, financial, or healthcare systems where security is critical.
 4. Provide reasoning.
 5. Generate a short, snake_case 'project_name'. CRITICAL: If the user is asking to UPDATE or ADD features to an existing project, you MUST guess the original base project name and use it exactly (e.g., use 'django_course_management' DO NOT add words like '_update' or '_new').
 
