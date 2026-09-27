@@ -61,10 +61,6 @@ def main():
     mcp_server = MCPServer()
     mcp_client = MCPClient(mcp_server)
 
-    # try:
-    #     mcp_server.execute_tool("create_task", {"task_id": "T00", "title": "Setup Git Repository", "status": "done"})
-    # except ValueError:
-    #     pass
 
 
     runner = WorkflowRunner(llm=llm, mcp_client=mcp_client)
@@ -73,9 +69,8 @@ def main():
     #demo propmt. you can write everything you want.
 
     demo_prompt = (
-        "This is a COMPLEX medical project. We need a local network API to store patient data."
-        "CRITICAL HARDWARE CONSTRAINT: Our legacy hospital hardware is from 1990. It physically CANNOT process SSL/TLS (no HTTPS allowed) and it has zero capacity for any encryption libraries or password hashing algorithms."
-        " You MUST use plain HTTP and plaintext storage. You are STRICTLY FORBIDDEN from adding any security libraries like bcrypt, crypto, or JWT."
+        "Create a new project exactly named 'weather_cli_app'."
+        " It should be a simple Python command-line tool that gets the user's city and prints the current temperature using a mock static function. No complex APIs."
     )
 
     print("\n[USER INPUT]:", demo_prompt)

@@ -1,4 +1,4 @@
-# Environment variables (کلید API اینجاست - هرگز نباید commit بشه)
+# Environment variables 
 .env
 .env.local
 *.env
@@ -7,6 +7,8 @@
 venv/
 env/
 .venv/
+
+project_workspaces/
 
 # Python cache
 __pycache__/
