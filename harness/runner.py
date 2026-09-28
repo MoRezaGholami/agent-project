@@ -129,7 +129,7 @@ class WorkflowRunner:
                 print(f"   -> Architect's Tech Stack: {', '.join(arch_plan.technologies)}")
                 print(f"   -> Architect's Decisions: {arch_plan.architecture_decisions[0]} ...")
                 
-                sec_review = self._safe_invoke(self.security_agent.invoke, arch_plan)
+                sec_review = self._safe_invoke(self.security_agent.invoke,self.state.goal ,  arch_plan)
                 if not sec_review:
                      return self._abort_workflow("Security Agent failed.")
                      
@@ -249,7 +249,7 @@ class WorkflowRunner:
                 review = ReviewResult(status=ReviewStatus.APPROVED, issues=[], suggested_changes=[])
                 
             else :
-                review = self._safe_invoke(self.reviewer.invoke, self.state.architecture, self.state.task_plan, tool_errors , mcp_context)
+                review = self._safe_invoke(self.reviewer.invoke, self.state.goal ,self.state.architecture, self.state.task_plan, tool_errors , mcp_context)
             if not review:
                 # If reviewer fails, we break the loop and return what we have (Graceful Degradation)
                 print("[HARNESS ERROR] Reviewer Agent failed. Stopping validation loop.")

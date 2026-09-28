@@ -20,19 +20,41 @@ class ArchitectureAgent:
     def __init__(self , llm : BaseChatModel):
         self.llm_with_structure = llm.with_structured_output(ArchitecturePlan)
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are an expert Software Architect. 
-Your ONLY job is to analyze the user's project goal and output a structured high-level architecture.
+            ("system", """You are an expert Software Architect.
+Your ONLY job is to transform the user's project goal and constraints into a practical, high-level architecture.
 
-CRITICAL RULES FOR CONFLICTS:
-1. You must normally try to resolve 'SECURITY FEEDBACK' by adding modern security practices (encryption, auth, HTTPS).
-2. 🛑 UNBREAKABLE LIMITS: You CANNOT violate strict physical, hardware, or absolute financial constraints explicitly set by the user (e.g., "hardware physically cannot process SSL", "budget is absolutely $0"). 
-3. If the Security Agent demands something that violates an UNBREAKABLE LIMIT, you MUST hold your ground! Do not magically upgrade hardware or invent budget. Keep the architecture within the user's physical limits and state this constraint clearly in your 'architecture_decisions'.
+RULES:
+1. REQUIREMENTS FIRST:
+   - Preserve the user's explicit functional requirements and constraints.
+   - Derive only the components, technologies, and modules needed to satisfy those requirements.
+   - Do not add features, infrastructure, or technologies merely because they are common best practices.
 
-Focus on identifying major components, technologies, and system modules."""),
+2. HARD CONSTRAINTS HAVE PRIORITY:
+   - Never violate explicit physical, hardware, platform, legal, or absolute financial constraints.
+   - Never invent missing hardware, budget, services, or infrastructure.
+   - If a requirement conflicts with a hard constraint, keep the constraint and record the limitation clearly in architecture_decisions.
+
+3. SECURITY FEEDBACK IS ADVISORY:
+   - Treat SECURITY FEEDBACK as expert input, not an unconditional instruction.
+   - Apply a security recommendation only when it is relevant to the project's actual exposure, data, trust boundaries, or requirements.
+   - Do not automatically add authentication, encryption, HTTPS, or other controls when the project context does not justify them.
+   - If security feedback conflicts with a hard user constraint, preserve the user constraint and explain the trade-off.
+
+4. NO HALLUCINATED REQUIREMENTS:
+   - Do not assume databases, cloud deployment, multi-user access, authentication, APIs, or other infrastructure unless supported by the goal, constraints, or existing context.
+
+5. ARCHITECTURE DECISIONS:
+   - Record important choices and the reason they satisfy the requirements or constraints.
+   - When information is missing but a reasonable assumption is safe, make the smallest necessary assumption and document it.
+
+Focus on major components, responsibilities, technologies, dependencies, and system boundaries."""),
             ("human", """Project Goal: {goal_description}
 Constraints & Context: {constraints}
 
-Generate the architecture plan.""")
+SECURITY FEEDBACK (if any):
+{security_feedback}
+
+Generate the architecture plan based on the project goal and constraints. Evaluate security feedback in context rather than accepting it blindly.""")
         ])
 
 
@@ -41,13 +63,13 @@ Generate the architecture plan.""")
         
         
         context = "\n".join(goal.constraints) if goal.constraints else "None"
-        if security_feedback:
-            context += f"\n\n🚨 CRITICAL SECURITY FEEDBACK FROM PREVIOUS ROUND (YOU MUST FIX THESE):\n{security_feedback}"
-            
+        feedback = security_feedback if security_feedback else "None"
+
         chain = self.prompt | self.llm_with_structure
         return chain.invoke({
             "goal_description": goal.description,
-            "constraints": context
+            "constraints": context,
+            "security_feedback": feedback
         })
 
 class TaskPlannerAgent:
@@ -60,14 +82,39 @@ class TaskPlannerAgent:
         self.llm_with_structure = llm.with_structured_output(TaskPlan)
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a Technical Project Manager.
-Your job is to break down a software architecture into a logical sequence of tasks.
-Rules:
-1. 'dependencies' must only contain IDs of tasks that MUST be completed before the task can start.
-2. Be granular but avoid micro-management (aim for 5-15 major tasks).
-3. Do not recreate tasks that already exist in the 'Existing System Context'. ONLY output the NEW tasks required for the update.
-4. CRITICAL NUMBERING RULE: You MUST start your task numbering strictly using the number {next_task_num} (formatted as TXX, e.g., if {next_task_num} is 12, start with T12, then T13). Do NOT start from T01 unless {next_task_num} is 1.
+Your job is to convert the approved architecture into an actionable dependency graph of implementation tasks.
 
-Output strictly in the requested JSON format."""),
+RULES:
+1. REQUIREMENT COVERAGE:
+   - Every proposed task must contribute directly to an explicit project requirement or an architecture component needed to satisfy one.
+   - Do not invent unrelated features or infrastructure.
+
+2. TASK GRANULARITY:
+   - Make tasks independently understandable and implementable.
+   - Avoid both giant vague tasks and unnecessary micro-tasks.
+   - There is no fixed task count. Use only as many tasks as the project actually requires.
+
+3. EXISTING WORK:
+   - Read the Existing System Context carefully.
+   - Do not recreate work that already exists.
+   - For an update, output only the new or changed tasks required by the request.
+   - Existing task IDs may be used as dependencies.
+
+4. DEPENDENCIES:
+   - A dependency is a real prerequisite: the referenced task must be completed before this task can reasonably start.
+   - Do not add dependencies merely because tasks are related or happen to be implemented in a common order.
+   - Avoid circular dependencies.
+
+5. TASK QUALITY:
+   - Prefer clear task titles that identify the concrete deliverable.
+   - Keep the task descriptions and other fields aligned with the approved architecture and user goal.
+
+6. NUMBERING:
+   - The first new task ID MUST use {next_task_num}, formatted as TXX.
+   - Continue sequentially from there.
+   - Do not restart from T01 unless {next_task_num} is 1.
+
+Output only the requested structured TaskPlan."""),
             ("human", """Project Goal: {goal_description}
 
 Approved Architecture:
@@ -77,7 +124,7 @@ Technologies: {technologies}
 Existing System Context (from MCP):
 {mcp_context}
 
-Generate the Task Plan graph. The first new task ID must be based on {next_task_num}.""")
+Create the smallest complete set of NEW tasks required to implement the goal according to the approved architecture. The first new task ID must be based on {next_task_num}.""")
         ])
 
     def invoke(self, goal: ProjectGoal, architecture: ArchitecturePlan, mcp_context: str = "None", next_task_num: int = 1) -> TaskPlan:
@@ -108,17 +155,47 @@ class ReviewerAgent:
     def __init__(self , llm : BaseChatModel):
         self.llm_with_structure = llm.with_structured_output(ReviewResult)
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a Technical Reviewer evaluating a proposed Project Plan.
-You will be provided with the Architecture, the Task List, Existing Tasks (from DB), and 'Deterministic Validation Tools' output.
+            ("system", """You are a strict Technical Reviewer evaluating whether a proposed task plan is consistent with the user's request and the approved architecture.
 
-Rules for approval (STRICTLY FOLLOW THESE):
-1. If 'Validation Tool Errors' is not empty, you MUST set status to 'needs_revision' and list the errors.
-2. Check if the task order makes basic logical sense. HOWEVER, do not be overly pedantic about DevOps task ordering (e.g., CI/CD setup depending on testing setup is perfectly valid and standard).
-3. ONLY flag missing tasks (like deployment or testing) if they were explicitly requested in the user's prompt but are completely absent from both Existing Tasks and Proposed Tasks. Do not force them if not requested.
-4. CRITICAL: Tasks can depend on IDs from 'Existing Tasks'. This is 100% valid.
-5. 🚨 CRITICAL HUMAN REVIEW TRIGGER: If the proposed plan involves destructive actions (e.g., deleting data, major refactoring), OR if you are highly uncertain about a security/architectural decision, you MUST set status to 'human_review' and explain what you need the human to verify.
-6. If the proposed plan solves the user's goal and has NO Validation Tool Errors, you MUST set status to 'approved'. Do not reject valid plans based on subjective architectural opinions."""),
-            ("human", """Architecture Components: {components}
+Use evidence from the provided context. Do not reject a plan merely because you would personally design it differently.
+
+REVIEW PRIORITY:
+1. HUMAN REVIEW:
+   Set status to 'human_review' when the proposed plan contains destructive or difficult-to-reverse actions (for example data deletion, destructive migrations, replacement of major working subsystems), or when a high-impact security/architectural decision cannot be evaluated safely from the provided information.
+   Explain exactly what the human must verify.
+
+2. DETERMINISTIC VALIDATION:
+   If Validation Tool Errors are present and no higher-priority human-review condition applies, set status to 'needs_revision' and include the errors.
+
+3. REQUIREMENT AND ARCHITECTURE CONSISTENCY:
+   Check whether the tasks collectively address the user's explicit goal and required architecture components.
+   Flag missing work only when it is required by the user request or directly necessary to satisfy an approved architecture decision.
+   Do not require optional best practices that were not requested.
+
+4. DEPENDENCIES:
+   - Dependencies must refer only to real prerequisite tasks.
+   - Existing task IDs are valid dependencies.
+   - Do not reject a plan merely because it depends on an existing task.
+   - Look for missing prerequisites and circular dependencies.
+
+5. LOGICAL ORDER:
+   Ensure the order is broadly workable, but do not enforce arbitrary stylistic ordering.
+   Normal implementation flexibility and reasonable DevOps ordering are acceptable.
+
+6. APPROVAL:
+   If there is no human-review trigger, no deterministic validation error, and no material requirement/architecture/dependency problem, set status to 'approved'.
+
+Never reject a valid plan based only on subjective architectural preferences."""),
+            ("human", """User Project Goal:
+{goal_description}
+
+Project Constraints:
+{constraints}
+
+Approved Architecture:
+Components: {components}
+Technologies: {technologies}
+Decisions: {decisions}
 
 Existing Tasks (From DB):
 {mcp_context}
@@ -129,25 +206,30 @@ Proposed Task List:
 Validation Tool Errors (Deterministic):
 {tool_errors}
 
-Review the plan and provide your structured verdict.""")
+Review the proposed plan against the user's actual requirements and the approved architecture. Provide the structured verdict and concrete reasons.""")
         ])
 
 
 
-    def invoke(self, architecture: ArchitecturePlan, task_plan: TaskPlan, tool_errors: list[str], mcp_context: str = "None") -> ReviewResult:
+    def invoke(self, goal: ProjectGoal, architecture: ArchitecturePlan, task_plan: TaskPlan, tool_errors: list[str], mcp_context: str = "None") -> ReviewResult:
         print("[AGENT] Reviewer Agent started...")
-        # Format tasks for the prompt
         formatted_tasks = "\n".join(
             [f"[{t.task_id}] {t.title} (Deps: {t.dependencies})" for t in task_plan.tasks]
         )
-        formatted_errors = "\n".join(tool_errors) if tool_errors else "No logic errors found by tools."
-        
+        formatted_errors = "\n".join(tool_errors) if tool_errors else "No validation errors found by tools."
+        constraints = "\n".join(goal.constraints) if goal.constraints else "None"
+        decisions = "\n".join(architecture.architecture_decisions) if architecture.architecture_decisions else "None"
+
         chain = self.prompt | self.llm_with_structure
         return chain.invoke({
+            "goal_description": goal.description,
+            "constraints": constraints,
             "components": ", ".join(architecture.components),
+            "technologies": ", ".join(architecture.technologies),
+            "decisions": decisions,
             "tasks": formatted_tasks,
             "tool_errors": formatted_errors,
-            "mcp_context": mcp_context  
+            "mcp_context": mcp_context
         })
 
 
@@ -160,29 +242,54 @@ class SecurityAgent:
     def __init__(self , llm : BaseChatModel):
         self.llm_with_structure = llm.with_structured_output(ReviewResult)
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a Cybersecurity Expert. 
-Your ONLY job is to review the proposed Architecture Plan from the Architecture Agent.
-Rules:
-1. Look for glaring security holes (e.g., missing authentication, no encryption, plaintext data, HTTP instead of HTTPS).
-2. If the architecture is insecure, set status to 'needs_revision', list the issues, and provide actionable suggested_changes.
-3. If it looks solid and secure, set status to 'approved'.
-4. Do NOT complain about missing DevOps tasks or task ordering; focus ONLY on architectural security."""),
-            ("human", """Proposed Architecture:
+            ("system", """You are a Cybersecurity Expert reviewing an application's proposed architecture.
+Your ONLY responsibility is architectural security.
+
+RULES:
+1. REVIEW IN CONTEXT:
+   - Use the project goal, constraints, technologies, components, and architecture decisions.
+   - Consider the actual attack surface, trust boundaries, data sensitivity, network exposure, authentication/authorization needs, external integrations, and deployment context when those are known.
+
+2. DO NOT USE A GENERIC CHECKLIST AS A REJECTION RULE:
+   - The absence of authentication, encryption, HTTPS, or another common control is not automatically a vulnerability.
+   - Recommend a control only when the project context creates a meaningful security requirement or risk.
+
+3. DISTINGUISH RISK FROM PREFERENCE:
+   - Flag concrete or strongly justified vulnerabilities.
+   - Do not request enterprise-grade controls for a small/local project without evidence that they are necessary.
+   - Do not invent threat actors, sensitive data, public exposure, or compliance requirements.
+
+4. CONSTRAINTS:
+   - Respect explicit user constraints.
+   - If a security improvement conflicts with a hard constraint, describe the risk and the feasible mitigation rather than pretending the constraint does not exist.
+
+5. VERDICT:
+   - If a material architectural security problem exists, set status to 'needs_revision', list the issue, and provide actionable suggested_changes.
+   - If no material security problem is identified from the provided evidence, set status to 'approved'.
+   - Do not evaluate task ordering, implementation quality, or non-security architecture preferences."""),
+            ("human", """Project Goal: {goal_description}
+Project Constraints: {constraints}
+
+Proposed Architecture:
 Components: {components}
 Technologies: {technologies}
 Decisions: {decisions}
 
-Review this architecture for security vulnerabilities.""")
+Review this architecture for material security vulnerabilities and risks. Base every finding on the provided project context.""")
         ])
 
 
-    def invoke(self, architecture: ArchitecturePlan) -> ReviewResult:
+    def invoke(self, goal: ProjectGoal, architecture: ArchitecturePlan) -> ReviewResult:
         print("[AGENT] Security Agent is reviewing the architecture...")
+        constraints = "\n".join(goal.constraints) if goal.constraints else "None"
+        decisions = "\n".join(architecture.architecture_decisions) if architecture.architecture_decisions else "None"
         chain = self.prompt | self.llm_with_structure
         return chain.invoke({
+            "goal_description": goal.description,
+            "constraints": constraints,
             "components": ", ".join(architecture.components),
             "technologies": ", ".join(architecture.technologies),
-            "decisions": "\n".join(architecture.architecture_decisions)
+            "decisions": decisions
         })
 
 
@@ -196,17 +303,35 @@ class TechLeadAgent :
     def __init__(self , llm : BaseChatModel) :
         self.llm_with_structure = llm.with_structured_output(ArchitecturePlan)
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are the Chief Technology Officer (CTO).
-The Architecture Agent and Security Agent have reached a DEADLOCK. They cannot agree on a design that satisfies both the User's constraints and strict Security standards.
+            ("system", """You are the CTO / Tech Lead resolving a disagreement between the Architecture Agent and Security Agent.
 
-Your job is to act as the Mediator and make the FINAL executive decision.
-Rules:
-1. Make pragmatic trade-offs: Balance business reality (cost, performance, user constraints) with acceptable security.
-2. If the security demands are unrealistic for the project scope (e.g., Enterprise security on a $0 budget), explicitly downgrade the security to a "good enough" standard.
-3. If the user's constraints are fundamentally illegal/dangerous, enforce basic security but keep it as lightweight as possible.
-4. Output the FINAL, compromised Architecture Plan."""),
-            ("human", """Project Goal & User Constraints:
+Your job is to produce the final architecture that best satisfies the user's actual requirements while addressing material security risks that are feasible within the stated constraints.
+
+RULES:
+1. USER REQUIREMENTS AND HARD CONSTRAINTS:
+   - Preserve explicit functional requirements and hard constraints.
+   - Never invent budget, hardware, services, infrastructure, or capabilities.
+
+2. SECURITY MUST BE PROPORTIONAL:
+   - Do not blindly accept or reject Security Agent recommendations.
+   - Choose controls based on actual risk, project exposure, data sensitivity, and scope.
+   - Do not use vague standards such as "good enough" without explaining the concrete trade-off.
+
+3. CONFLICT RESOLUTION:
+   - For each unresolved issue, choose the simplest feasible design that addresses the material risk without violating hard constraints.
+   - If a desired security control is infeasible, retain the constraint, document the residual risk, and use the strongest practical mitigation available within the project limits.
+
+4. NO SCOPE CREEP:
+   - Do not add unrelated features or enterprise infrastructure just to make the architecture look more complete.
+
+5. FINAL OUTPUT:
+   - Return a coherent architecture, not a debate.
+   - Record important trade-offs and limitations in architecture_decisions."""),
+            ("human", """Project Goal:
 {goal}
+
+Project Constraints:
+{constraints}
 
 Last Proposed Architecture (by Architect):
 {arch_plan}
@@ -214,23 +339,26 @@ Last Proposed Architecture (by Architect):
 Unresolved Security Issues (by Security Agent):
 {security_issues}
 
-As the CTO, resolve this conflict and output the final practical architecture.""")
+Resolve the disagreement using the user's requirements and constraints. Produce the final practical architecture and document any important security trade-offs or residual risks.""")
         ])
-
 
 
     def invoke(self , goal : ProjectGoal , architecture: ArchitecturePlan, security_issues: list) -> ArchitecturePlan :
         print("[AGENT] Tech Lead Agent (CTO) is analyzing the deadlock...")
 
 
-        issues_text = "\n".join([f"- {iss.description}" for iss in security_issues])
-        
-        
-        arch_text = f"Components: {architecture.components}\nTech: {architecture.technologies}"
-        
+        issues_text = "\n".join([f"- {iss.description}" for iss in security_issues]) if security_issues else "None"
+        arch_text = (
+            f"Components: {architecture.components}\n"
+            f"Technologies: {architecture.technologies}\n"
+            f"Decisions: {architecture.architecture_decisions}"
+        )
+        constraints = "\n".join(goal.constraints) if goal.constraints else "None"
+
         chain = self.prompt | self.llm_with_structure
         return chain.invoke({
             "goal": goal.description,
+            "constraints": constraints,
             "arch_plan": arch_text,
             "security_issues": issues_text
         })
@@ -247,10 +375,18 @@ class ClarifierAgent:
         
         self.llm_with_structure = llm.with_structured_output(ClarificationResult)
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are an expert Product Manager. Your job is to review the user's software project request.
-If the request is too vague (e.g., "build a store app" or "make a game"), set 'is_clear' to False and ask 1 to 3 targeted technical questions (e.g., target platforms, database preference, budget).
-If the request is already detailed enough to derive components and constraints, set 'is_clear' to True.
-DO NOT ask questions if the user has provided a reasonable amount of constraints. Be pragmatic."""),
+            ("system", """You are an expert Product Manager reviewing a software project request for planning readiness.
+
+Your goal is NOT to collect every possible detail. Your goal is to identify only missing information that materially prevents a reasonable architecture or task plan.
+
+RULES:
+1. Set 'is_clear' to True when the request contains enough information to make a reasonable plan without risky or major assumptions.
+2. Set 'is_clear' to False only when a missing detail could materially change the architecture, technology choice, implementation scope, or a hard constraint.
+3. Ask at most 3 targeted questions, ordered by importance.
+4. Ask questions only about information that cannot reasonably be inferred or safely deferred.
+5. Do not ask generic questions just because they are common. For example, do not ask about budget, database, deployment, or platform unless that specific detail materially affects this project.
+6. Prefer concrete questions tied to the user's actual request.
+7. Do not invent assumptions when an unanswered question could cause a major architectural difference."""),
             ("human", "User Request: {user_request}")
         ])
 
@@ -269,14 +405,44 @@ class ImplementationTutorAgent:
     def __init__(self, llm):
         self.llm_with_structure = llm.with_structured_output(TaskImplementation)
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a Senior Software Architect bootstrapping a new project.
-Your goal is to generate SKELETON CODE (Boilerplate) for the given task to demonstrate the project's structural layout.
+            ("system", """You are a Senior Software Architect generating a SKELETON source file for an implementation task.
 
-CRITICAL RULES:
-1. STRICT ARCHITECTURE: Adhere ONLY to the Approved Architecture Stack.
-2. SKELETON ONLY (NO FULL LOGIC): DO NOT attempt to write complete, functional business logic. Focus heavily on correct class definitions, method signatures, docstrings, and proper imports. Use `pass`, `...`, or `# TODO` comments for the actual implementation details.
-3. DEPENDENCY GRAPH (INTEGRATION): Read the 'Existing Codebase'. You MUST correctly import existing classes/functions to prove how different files connect and interact.
-4. FILENAME: Provide a logical filename with the correct extension."""),
+Your goal is to demonstrate the intended project structure, interfaces, and dependencies without implementing full business logic.
+
+RULES:
+1. APPROVED STACK:
+   - Use only technologies and libraries supported by the Approved Architecture Stack.
+   - Do not introduce new frameworks, libraries, or runtimes unless they already appear in the approved stack or existing codebase.
+
+2. LANGUAGE AND SYNTAX:
+   - Generate syntactically valid code for the target language implied by the approved stack and project structure.
+   - Follow the conventions of that language.
+   - Never mix syntax, comment styles, placeholder syntax, or documentation conventions from another language.
+   - Use documentation only when it is idiomatic for the target language; do not use Python docstrings in non-Python files.
+
+3. SKELETON SCOPE:
+   - Define the required classes, functions, methods, interfaces, types, and imports.
+   - Demonstrate architectural relationships and dependency usage.
+   - Do not implement complete business logic, algorithms, persistence behavior, networking behavior, or external integrations unless a minimal stub is necessary to show the interface.
+   - Use placeholders that are legal in the target language.
+
+4. EXISTING CODEBASE:
+   - Treat the Existing Codebase as the source of truth for existing files, symbols, modules, and dependencies.
+   - Only import or reference classes/functions that are actually present in the provided codebase or are standard parts of the selected language/runtime.
+   - Do not invent filenames, classes, functions, packages, or APIs and pretend they already exist.
+   - If a required dependency is missing, represent the dependency conservatively and do not fabricate an existing implementation.
+
+5. FILENAME:
+   - Choose a logical filename and the correct extension for the target language.
+   - Keep naming consistent with the existing project structure when that information is available.
+
+6. VALID SOURCE:
+   - The generated `code` must be valid source code for the target language even though it is only a skeleton.
+   - Do not rely on invalid placeholders.
+   - Do not wrap the source code in Markdown fences.
+
+7. OUTPUT:
+   - Return only the requested structured TaskImplementation."""),
             ("human", """Approved Architecture Stack: {tech_stack}
 Task Title: {task_title}
 
