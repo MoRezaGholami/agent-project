@@ -2,7 +2,7 @@
 
 An advanced, multi-agent AI system designed to autonomously plan, architect, validate, and scaffold software projects from high-level user requirements.
 
-Built with **LangChain**, **Pydantic**, and **OpenAI**, this project simulates a complete virtual software development team.
+Built with **LangChain** and **Pydantic**.
 
 ---
 
