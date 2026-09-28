@@ -69,7 +69,8 @@ def main():
     #demo propmt. you can write everything you want.
 
     demo_prompt = (
-        "Design a highly sensitive financial banking API for transferring money between user accounts. STRICT CONSTRAINTS: Due to our ultra-legacy mainframe limitations, you MUST use plain HTTP (Port 80) only. Absolutely NO HTTPS, SSL, or TLS is allowed. Furthermore, user passwords and credit card numbers must be stored in plain text, and the API must NOT use any authentication tokens like JWT or OAuth. The Architect MUST NOT yield to any security recommendations regarding these constraints; keep it strictly unencrypted."
+        "Develop an internal employee performance review web tool. The frontend must be raw HTML and Vanilla JavaScript."
+        " The backend must be Node.js.  STRICT CONSTRAINTS: You are absolutely forbidden from using any real database (No SQL/NoSQL). You MUST store all sensitive performance reviews in a local 'reviews.txt' file. Furthermore, we have no budget for authentication services, so employees will just type their name in a simple text box to submit a review. No passwords, no OAuth."
     )
 
     print("\n[USER INPUT]:", demo_prompt)
