@@ -41,7 +41,7 @@ The system supports Human-in-the-Loop (HITL) interactions at different stages of
 
 
 * **🔌 Simulated MCP (Model Context Protocol)**
-  Uses a mock MCP Server and Client to strictly manage external state, database interactions (saving tasks), and external tool execution (like fetching live web tutorials).
+  Uses a mock MCP Server and Client to strictly manage external state, database interactions (saving and updating tasks), and external tool execution (like fetching live web tutorials).
 
 ---
 
