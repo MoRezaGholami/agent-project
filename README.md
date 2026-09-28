@@ -27,7 +27,7 @@ This system goes beyond basic text generation by implementing complex workflow l
 * **🩹 Self-Healing & Bounded Replanning**
   Captures generation or validation errors and feeds them back to the LLM for self-correction. Uses a controlled replanning loop (`MAX_REPLAN_ROUNDS`) to prevent infinite generation cycles.
 
-* **🛑 Human-in-the-Loop (HITL)
+* **🛑 Human-in-the-Loop (HITL)**
 
 The system supports Human-in-the-Loop (HITL) interactions at different stages of the workflow:
 
