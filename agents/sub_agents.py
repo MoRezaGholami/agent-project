@@ -273,10 +273,51 @@ class ImplementationTutorAgent:
 Your goal is to generate SKELETON CODE (Boilerplate) for the given task to demonstrate the project's structural layout.
 
 CRITICAL RULES:
-1. STRICT ARCHITECTURE: Adhere ONLY to the Approved Architecture Stack.
-2. SKELETON ONLY (NO FULL LOGIC): DO NOT attempt to write complete, functional business logic. Focus heavily on correct class definitions, method signatures, docstrings, and proper imports. Use `pass`, `...`, or `# TODO` comments for the actual implementation details.
-3. DEPENDENCY GRAPH (INTEGRATION): Read the 'Existing Codebase'. You MUST correctly import existing classes/functions to prove how different files connect and interact.
-4. FILENAME: Provide a logical filename with the correct extension."""),
+
+1. STRICT ARCHITECTURE:
+   Adhere ONLY to the Approved Architecture Stack.
+
+2. LANGUAGE AND SYNTAX:
+   Determine the programming language from the Approved Architecture Stack and the target filename/extension.
+   The generated file MUST use the syntax and conventions of that language.
+   
+   For example:
+   - Python: # comments, docstrings, pass
+   - JavaScript/TypeScript: // or /* */ comments, JSDoc, valid JS/TS syntax
+   - Java: // or /* */ comments, valid Java syntax
+   - C/C++: // or /* */ comments, valid C/C++ syntax
+   
+   NEVER use syntax from another programming language.
+
+3. SKELETON ONLY:
+   DO NOT implement complete business logic.
+   Focus on correct:
+   - class/function definitions
+   - method/function signatures
+   - imports
+   - interfaces/types where appropriate
+   - architecture and dependencies
+   
+   Use language-appropriate placeholders for unimplemented logic.
+   Do NOT blindly use Python-specific constructs such as `pass`, `...`, `# TODO`, or Python docstrings unless the target language is Python.
+
+4. DOCUMENTATION:
+   Use documentation syntax appropriate for the target language.
+   For example:
+   - Python → docstrings
+   - JavaScript/TypeScript → JSDoc
+   - Java → Javadoc
+
+5. DEPENDENCY GRAPH:
+   Read the Existing Codebase.
+   Correctly import/reference existing classes and functions according to the target language.
+
+6. FILENAME:
+   Provide a logical filename with the correct extension.
+
+7. OUTPUT:
+   Return only the requested structured TaskImplementation.
+   The `code` field must contain valid source code for the target language."""),
             ("human", """Approved Architecture Stack: {tech_stack}
 Task Title: {task_title}
 
