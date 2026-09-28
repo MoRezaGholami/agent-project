@@ -103,7 +103,7 @@ cd <repository-directory>
 2. Install the required dependencies:
 
 ```bash
-pip install langchain-core langchain-openai pydantic python-dotenv google
+pip install langchain-core langchain-openai pydantic python-dotenv
 ```
 
 > **Note:** Ensure all dependencies imported in the codebase are installed.
